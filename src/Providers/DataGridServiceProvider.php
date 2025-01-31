@@ -46,6 +46,7 @@ class DataGridServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             // Publish JS and CSS files
             $this->publishes([
+                self::BASE_PATH . '/Resources/assets/js/datagrid.js' => public_path('js/datagrid.js'),
                 self::BASE_PATH . '/Resources/assets/js/datagrid.min.js' => public_path('js/datagrid.min.js'),
                 self::BASE_PATH . '/Resources/assets/css/datagrid.min.css' => public_path('css/datagrid.min.css'),
             ], ['zk-datagrid', 'zk-datagrid-assets']);
