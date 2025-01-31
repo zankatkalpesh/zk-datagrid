@@ -1,0 +1,27 @@
+{
+    "name": "zk/lwa-datagrid",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Zankat Kalpesh",
+            "email": "zankatkalpesh@gmail.com"
+        }
+    ],
+    "require": {
+        "php": "^8.2"
+    },
+    "autoload": {
+        "psr-4": {
+            "Zk\\DataGrid\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Zk\\DataGrid\\Providers\\DataGridServiceProvider"
+            ],
+            "aliases": {}
+        }
+    },
+    "minimum-stability": "dev"
+}
