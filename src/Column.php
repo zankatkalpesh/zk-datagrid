@@ -9,6 +9,8 @@ use Illuminate\Support\Arr;
 class Column
 {
 
+    use Traits\GeneralMethods;
+
     public $path = '/';
 
     /**
@@ -17,6 +19,20 @@ class Column
      * @var array
      */
     protected ?array $output = null;
+
+    /**
+     * Heading attributes string.
+     * 
+     * @var string
+     */
+    protected string $headingAttrStr;
+
+    /**
+     * Item attributes string.
+     * 
+     * @var string
+     */
+    protected string $itemAttrStr;
 
     /**
      * Create a column instance.
@@ -33,8 +49,16 @@ class Column
         public mixed $formatter = null,
         public bool $escape = true,
         public array $attributes = [],
+        public array $headingAttributes = [],
+        public array $itemAttributes = [],
         public mixed $filterComponent = 'datagrid::filter',
-    ) {}
+    ) {
+        $this->headingAttributes = (!empty($this->headingAttributes)) ? $this->headingAttributes : $this->attributes;
+        $this->itemAttributes = (!empty($this->itemAttributes)) ? $this->itemAttributes : $this->attributes;
+
+        $this->headingAttrStr = $this->printAttributes($this->headingAttributes, ['class']);
+        $this->itemAttrStr = $this->printAttributes($this->itemAttributes);
+    }
 
     /**
      * Get index.
@@ -231,13 +255,43 @@ class Column
     }
 
     /**
-     * Get extra params.
+     * Get heading attributes.
      * 
      * @return array
      */
-    public function getAttributes(): array
+    public function getHeadingAttributes(): array
     {
-        return $this->attributes;
+        return $this->headingAttributes;
+    }
+
+    /**
+     * Get heading attributes string.
+     * 
+     * @return string
+     */
+    public function getHeadingAttributesString(): string
+    {
+        return $this->headingAttrStr;
+    }
+
+    /**
+     * Get item attributes.
+     * 
+     * @return array
+     */
+    public function getItemAttributes(): array
+    {
+        return $this->itemAttributes;
+    }
+
+    /**
+     * Get item attributes string.
+     * 
+     * @return string
+     */
+    public function getItemAttributesString(): string
+    {
+        return $this->itemAttrStr;
     }
 
     /**
@@ -273,7 +327,10 @@ class Column
             'options' => $this->getOptions(),
             'formatter' => $this->isFormatter(),
             'escape' => $this->isEscape(),
-            'attributes' => $this->getAttributes(),
+            'headingAttributes' => $this->getHeadingAttributes(),
+            'headingAttributesString' => $this->getHeadingAttributesString(),
+            'itemAttributes' => $this->getItemAttributes(),
+            'itemAttributesString' => $this->getItemAttributesString(),
             'filterComponent' => $this->getFilterComponent(),
         ];
 

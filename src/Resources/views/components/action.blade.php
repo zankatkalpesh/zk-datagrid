@@ -1,6 +1,8 @@
 @php
    $actionAttributes = $action['attributes'] ?? [];
    $confirm = $actionAttributes['confirm'] ?? null;
+   $class = 'btn btn-md btn-' . ($action['method'] === 'DELETE' ? 'danger' : 'primary');
+   $class = $actionAttributes['class'] ?? $class;
 @endphp
 @if($action && $action['formatter'])
     {!! $action['formatter'] !!}
@@ -16,7 +18,8 @@
                 @if (!in_array($action['method'], ['POST', 'GET']))
                     @method($action['method'])
                 @endif
-                <button type="submit" class="btn btn-md btn-{{ ($action['method'] === 'DELETE') ? 'danger' : 'primary' }}">
+                <button type="submit" class="{{ $class }}"
+                    {!! $action['attributesString'] ?? '' !!}>
                     @if($action['icon'])
                         @if($action['formatIcon'])
                             {!! $action['icon'] !!}
@@ -29,7 +32,9 @@
             </form>
             @break
         @default
-            <a href="{{ $action['url'] }}" class="btn btn-md btn-primary">
+            <a href="{{ $action['url'] }}" class="{{ $class }}"
+            @if($confirm) onclick="return confirm('{{ $confirm }}');" @endif
+            {!! $action['attributesString'] ?? '' !!}>
                 @if($action['icon'])
                     @if($action['formatIcon'])
                         {!! $action['icon'] !!}

@@ -6,6 +6,7 @@ namespace Zk\DataGrid\DataSources;
 
 use Illuminate\Contracts\Pagination\Paginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 use Zk\DataGrid\Column;
 use Zk\DataGrid\Contracts\DataSource;
 
@@ -28,7 +29,7 @@ class QueryDataSource implements DataSource
     public function search(mixed $search, $columns): void
     {
         $searchColumns = collect($columns)->filter(function ($column) {
-            return $column->isSearchable();
+            return $column->isSearchable() && $column->getColumn() !== '';
         });
 
         if ($searchColumns->isEmpty()) {
@@ -41,8 +42,14 @@ class QueryDataSource implements DataSource
                 if ($column->isSearchableCallback()) {
                     $column->getSearchable()($query, $search, $column);
                     continue;
-                } else{
-                    $query->orWhere($colName, 'like', '%' . $search . '%');
+                } else {
+                    $type = $column->getType();
+                    match ($type) {
+                        'number', 'integer' => $query->orWhere($colName, $search),
+                        'date' => $query->orWhereDate($colName, $search),
+                        'string-cs' => $query->orWhere($colName, 'like', "%{$search}%"),
+                        default => $query->orWhere(DB::raw("LOWER({$colName})"), 'like', "%" . strtolower($search) . "%"),
+                    };
                 }
             }
         });
@@ -55,6 +62,8 @@ class QueryDataSource implements DataSource
     public function filters(array $filters, $columns): void
     {
         $filterColumns = collect($columns)->filter(function ($column) use ($filters) {
+            if ($column->getColumn() === '') return false;
+
             $colIndex = $column->getIndex();
             return $column->isFilterable() && isset($filters[$colIndex]) && $filters[$colIndex] !== '';
         });
@@ -72,15 +81,22 @@ class QueryDataSource implements DataSource
                     $column->getFilterable()($query, $filter, $column);
                     continue;
                 }
-                if (is_array($filter)) {
-                    $query->where(function (Builder $query) use ($filter, $colName) {
-                        foreach ($filter as $value) {
-                            $query->orWhere($colName, 'like', '%' . $value . '%');
-                        }
-                    });
-                    continue;
-                }
-                $query->where($colName, 'like', '%' . $filter . '%');
+
+                $type = $column->getType();
+                $method = match ($type) {
+                    'number', 'integer' => 'orWhere',
+                    'date' => 'orWhereDate',
+                    'string-cs' => fn($query, $colName, $value) => $query->orWhere($colName, 'like', '%' . $value . '%'),
+                    default => fn($query, $colName, $value) => $query->orWhere(DB::raw('LOWER(' . $colName . ')'), 'like', '%' . strtolower($value) . '%'),
+                };
+
+                $query->where(function (Builder $query) use ($filter, $colName, $method) {
+                    foreach ((array) $filter as $value) {
+                        is_callable($method)
+                            ? $method($query, $colName, $value)
+                            : $query->{$method}($colName, $value);
+                    }
+                });
             }
         });
     }

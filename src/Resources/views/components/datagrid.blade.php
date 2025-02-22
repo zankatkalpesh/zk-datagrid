@@ -1,6 +1,3 @@
-@push('styles')
-    <link href="{{ asset('css/datagrid.min.css') }}" rel="stylesheet">
-@endpush
 <div id="grid-{{ $uid }}" class="zk-datagrid row">
     <form class="grid-form" id="frm-{{ $uid }}" method="GET" action="{{ $baseUrl }}">
         @php
@@ -42,8 +39,8 @@
                     <div class="input-group">
                         <input type="text" placeholder="Search" class="form-control" name="search"
                             value="{{ $data['search'] }}">
-                        <button class="btn btn-outline-secondary btn-grid-search" type="button">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-search" viewBox="0 0 16 16">
+                        <button class="btn btn-outline-primary btn-grid-search" type="button">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
                                 <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0" />
                             </svg>
                         </button>
@@ -54,7 +51,7 @@
     </div>
     @if(count($massActions))
         <div class="col-12 mb-2">
-            <x-datagrid::massaction :uid="$uid" :baseUrl="$baseUrl" :massActions="$massActions"></x-datagrid::massaction>
+            <x-datagrid::massaction :uid="$uid" :baseUrl="$baseUrl" :massActions="$massActions" :massActionTitle="$massActionTitle ?? ''"></x-datagrid::massaction>
         </div>
     @endif
     <div class="col-12 mb-2">
@@ -70,9 +67,15 @@
                             </th>
                         @endif
                         @foreach($columns as $column)
-                            <th class="align-top grid-column{{ $column['filterable'] ? ' grid-filter': '' }}" data-index="{{ $column['index'] }}"
+                            @php
+                                $class = $column['headingAttributes']['class'] ?? 'align-top';
+                                $class .= ' grid-column';
+                                $class .= $column['filterable'] ? ' grid-filter' : '';
+                            @endphp
+                            <th class="{{ $class }}" data-index="{{ $column['index'] }}"
                                 data-sortable="{{ $column['sortable'] ? 'true' : 'false' }}"
-                                @if ($data['sort']==$column['column']) data-order="{{ $data['order'] }}" @endif>
+                                @if ($data['sort']==$column['column']) data-order="{{ $data['order'] }}" @endif
+                                {!! $column['headingAttributesString'] ?? '' !!}>
                                 @if ($column['sortable'])
                                     <a href="{{ $baseUrl }}{{ $column['sortableLink'] }}" class="column-sort-link d-block">{{ $column['title'] }}</a>
                                 @else
@@ -89,6 +92,7 @@
                     </tr>
                 </thead>
                 <tbody class="grid-items">
+                    @php $serialNo = $data['start'] ?? 1; @endphp
                     @foreach($data['items'] as $row)
                         <tr class="grid-row">
                             @if(count($massActions))
@@ -99,8 +103,10 @@
                                 </td>
                             @endif
                             @foreach($columns as $column)
-                                <td data-index="{{ $column['index'] }}">
-                                    @if ($column['escape'])
+                                <td data-index="{{ $column['index'] }}" {!! $column['itemAttributesString'] ?? '' !!}>
+                                    @if ($column['type'] === 'serial-no')
+                                        {{ $serialNo++ }}
+                                    @elseif ($column['escape'])
                                         {{ $row[$column['column']] }}
                                     @else
                                         {!! $row[$column['column']] !!}
@@ -118,12 +124,12 @@
                     @endforeach
                     <tr class="grid-empty-data" {!! (count($data['items'])==0) ? '' : 'style="display: none;"' !!}>
                         <td colspan="{{ count($columns) + (count($massActions) ? 1 : 0) + (count($actions) ? 1 : 0) }}">
-                            <div class="zk-datagrid-empty">No records found</div>
+                            <div class="zk-datagrid-empty">{!! $data['emptyText'] !!}</div>
                         </td>
                     </tr>
                     <tr class="grid-data-loader" style="display: none;">
                         <td colspan="{{ count($columns) + (count($massActions) ? 1 : 0) + (count($actions) ? 1 : 0) }}">
-                            <div class="zk-datagrid-loader">Loading...</div>
+                            <div class="zk-datagrid-loader">{!! $data['loadingText'] !!}</div>
                         </td>
                     </tr>
                 </tbody>
@@ -153,14 +159,3 @@
         </div>
     @endif
 </div>
-<!-- Add Scripts -->
-@push('scripts')
-    <script src="{{ asset('js/datagrid.min.js') }}"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Data Grid
-            const dataGridNonAjax = new ZkDataGrid();
-            dataGridNonAjax.setGrid('grid-{{ $uid }}');
-        });
-    </script>
-@endpush

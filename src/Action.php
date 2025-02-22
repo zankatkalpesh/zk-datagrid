@@ -7,12 +7,22 @@ namespace Zk\DataGrid;
 
 class Action
 {
+
+    use Traits\GeneralMethods;
+
     /**
      * Final output data.
      * 
      * @var array
      */
     protected ?array $output = null;
+
+    /**
+     * Attributes string.
+     * 
+     * @var string
+     */
+    protected string $attrStr;
 
     /**
      * Create a action instance.
@@ -27,7 +37,9 @@ class Action
         public bool $escape = true,
         public array $attributes = [],
         public string $component = 'datagrid::action',
-    ) {}
+    ) {
+        $this->attrStr = $this->printAttributes($this->attributes, ['confirm', 'class']);
+    }
 
     /**
      * Get index.
@@ -141,6 +153,16 @@ class Action
     }
 
     /**
+     * Get attributes string.
+     * 
+     * @return string
+     */
+    public function getAttributesString(): string
+    {
+        return $this->attrStr;
+    }
+
+    /**
      * Get component.
      * 
      * @return string
@@ -172,6 +194,7 @@ class Action
             'formatter' => $this->isFormatter(),
             'escape' => $this->isEscape(),
             'attributes' => $this->getAttributes(),
+            'attributesString' => $this->getAttributesString(),
             'component' => $this->getComponent(),
         ];
 

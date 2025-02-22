@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Zk\DataGrid;
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\LazyCollection;
 use Zk\DataGrid\Contracts\DataSource;
@@ -140,6 +141,34 @@ class DataGrid
      * @var array
      */
     protected ?array $output = null;
+
+    /**
+     * Mass action title text.
+     * 
+     * @var string
+     */
+    protected string $massActionTitle = 'Select action';
+
+    /**
+     * Empty text.
+     * 
+     * @var string
+     */
+    protected string $emptyText = 'No records found';
+
+    /**
+     * Loading text.
+     * 
+     * @var string
+     */
+    protected string $loadingText = 'Loading...';
+
+    /**
+     * Meta data
+     *
+     * @var array
+     */
+    protected $metaData = [];
 
     /**
      * Set primary key.
@@ -310,6 +339,85 @@ class DataGrid
         return $this;
     }
 
+    /** 
+     * Get mass action title.
+     * 
+     * @return string
+     */
+    public function getMassActionTitle(): string
+    {
+        return $this->massActionTitle;
+    }
+
+    /**
+     * Set mass action title.
+     * 
+     * @param string $massActionTitle
+     * @return self
+     */
+    public function setMassActionTitle(string $massActionTitle): self
+    {
+        $this->massActionTitle = $massActionTitle;
+
+        return $this;
+    }
+
+    /**
+     * Set empty text.
+     * 
+     * @param string $emptyText
+     * @return self
+     */
+    public function setEmptyText(string $emptyText): self
+    {
+        $this->emptyText = $emptyText;
+
+        return $this;
+    }
+
+
+    /**
+     * Set loading text.
+     * 
+     * @param string $loadingText
+     * @return self
+     */
+    public function setLoadingText(string $loadingText): self
+    {
+        $this->loadingText = $loadingText;
+
+        return $this;
+    }
+
+    /**
+     * Get Meta Data
+     * 
+     * @param string | null $key
+     * @return mixed
+     */
+    public function getMetaData($key = null)
+    {
+        return ($key) ? Arr::get($this->metaData, $key) : $this->metaData;
+    }
+
+    /** 
+     * Set properties
+     * 
+     * @param array $metaData
+     * @return Form
+     */
+    public function setMetaData(array $metaData)
+    {
+        $this->metaData = array_merge($this->metaData, $metaData);
+
+        return $this;
+    }
+
+    /**
+     * Map items to array.
+     * 
+     * @param array $items
+     */
     private function mapToArray(array $items): array
     {
         return LazyCollection::make($items)
@@ -379,6 +487,7 @@ class DataGrid
     public function addColumn(array $column): void
     {
         $defaults = [
+            'type' => 'string',
             'title' => null,
             'sortable' => false,
             'searchable' => false,
@@ -387,9 +496,18 @@ class DataGrid
             'formatter' => null,
             'escape' => true,
             'attributes' => [],
+            'headingAttributes' => [],
+            'itemAttributes' => [],
         ];
 
         $column = array_merge($defaults, $column);
+
+        if ($column['type'] === 'serial-no') {
+            $column['column'] = '';
+            $column['sortable'] = false;
+            $column['searchable'] = false;
+            $column['filterable'] = false;
+        }
 
         $this->columns[] = new Column(
             index: count($this->columns),
@@ -402,7 +520,9 @@ class DataGrid
             options: $column['options'],
             formatter: $column['formatter'],
             escape: $column['escape'],
-            attributes: $column['attributes']
+            attributes: $column['attributes'],
+            headingAttributes: $column['headingAttributes'],
+            itemAttributes: $column['itemAttributes']
         );
 
         if ($column['searchable'] ?? false) {
@@ -444,9 +564,11 @@ class DataGrid
     public function addMassAction(array $massAction): void
     {
         $defaults = [
+            'value' => null,
             'icon' => '',
             'escape' => true,
             'options' => [],
+            'params' => [],
             'attributes' => [],
         ];
 
@@ -455,11 +577,13 @@ class DataGrid
         $this->massActions[] = new MassAction(
             index: count($this->massActions),
             title: $massAction['title'],
+            value: $massAction['value'],
             icon: $massAction['icon'],
             method: $massAction['method'],
             url: $massAction['url'],
             escape: $massAction['escape'],
             options: $massAction['options'],
+            params: $massAction['params'],
             attributes: $massAction['attributes']
         );
     }
@@ -552,6 +676,7 @@ class DataGrid
             'columns' => $this->getColumnsArray(),
             'actions' => $this->getActionsArray(),
             'massActions' => $this->getMassActionsArray(),
+            'massActionTitle' => $this->getMassActionTitle(),
             'data' => $this->requestData,
         ];
 
@@ -662,6 +787,8 @@ class DataGrid
             'links' => $links ?? [],
             'hasMorePages' => $hasMorePages,
             'requestQuery' => request()->query(),
+            'emptyText' => $this->emptyText,
+            'loadingText' => $this->loadingText,
         ];
     }
 

@@ -35,7 +35,7 @@ class CollectionDataSource implements DataSource
     public function search(string $search, $columns): void
     {
         $searchColumns = collect($columns)->filter(function ($column) {
-            return $column->isSearchable();
+            return $column->isSearchable() && $column->getColumn() !== '';
         });
 
         if ($searchColumns->isEmpty()) {
@@ -70,6 +70,8 @@ class CollectionDataSource implements DataSource
     public function filters(array $filters, $columns): void
     {
         $filterColumns = collect($columns)->filter(function ($column) use ($filters) {
+            if ($column->getColumn() === '') return false;
+            
             $colIndex = $column->getIndex();
             return $column->isFilterable() && isset($filters[$colIndex]) && $filters[$colIndex] !== '';
         });

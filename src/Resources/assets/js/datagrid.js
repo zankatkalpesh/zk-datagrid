@@ -8,11 +8,11 @@ export default class ZkDataGrid {
     isLazyLoad = false;
 
     options = {
-        loading: `<div class="zk-datagrid-loading">Loading...</div>`,
-        empty: `<div class="zk-datagrid-empty">No records found</div>`,
+        loadingText: `<div class="zk-datagrid-loading">:text</div>`,
+        emptyText: `<div class="zk-datagrid-empty">:text</div>`,
         loadingDelay: 0,
         class: 'zk-datagrid row',
-        dataLoader: `<div class="zk-datagrid-loader">Loading...</div>`,
+        loader: `<div class="zk-datagrid-loader">Loading...</div>`,
     }
 
     constructor(options = {}) {
@@ -101,7 +101,7 @@ export default class ZkDataGrid {
         this.container.innerHTML = '';
 
         // Container Loading
-        this.container.appendChild(this.stringToHTML(this.options.loading));
+        this.container.appendChild(this.stringToHTML(this.options.loader));
 
         this.buildGrid();
 
@@ -268,8 +268,8 @@ export default class ZkDataGrid {
                     ${hasSearch ? `
                         <div class="input-group">
                             <input type="text" placeholder="Search" class="form-control" name="search" value="${search || ''}">
-                            <button class="btn btn-outline-secondary btn-grid-search" type="button">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-search" viewBox="0 0 16 16">
+                            <button class="btn btn-outline-primary btn-grid-search" type="button">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
                                     <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0" />
                                 </svg>
                             </button>
@@ -283,21 +283,21 @@ export default class ZkDataGrid {
 
     getMassActionsTemplate() {
 
-        const { uid, csrf_token, massActions } = this.gridObj;
+        const { uid, csrf_token, massActions, massActionTitle = "Select action" } = this.gridObj;
 
         const optionsHtml = massActions.map((action) => {
             if (action.options && action.options.length) {
                 // Render optgroup with nested options
-                const optgroupOptions = action.options.map((option) => `
-                    <option data-url="${option.url || action.url || ''}" data-method="${option.method || action.method || ''}" data-params='${JSON.stringify(option.attributes || action.attributes || {})}' value="${option.value}">
+                const optgroupOptions = action.options.map((option, index) => `
+                    <option data-url="${option.url || action.url || ''}" data-method="${option.method || action.method || ''}" data-params='${JSON.stringify(option.params || action.params || {})}' value="${option.value || index}" ${option.attributesString ?? ''}>
                         ${option.label}
                     </option>
                 `).join('');
-                return `<optgroup label="${action.title}">${optgroupOptions}</optgroup>`;
+                return `<optgroup label="${action.title}" ${action.attributesString ?? ''}>${optgroupOptions}</optgroup>`;
             } else {
                 // Render single option
                 return `
-                    <option data-url="${action.url || ''}" data-method="${action.method || ''}" data-params='${JSON.stringify(action.attributes || {})}' value="${action.index}">
+                    <option data-url="${action.url || ''}" data-method="${action.method || ''}" data-params='${JSON.stringify(action.params || {})}' value="${action.value || action.index}" ${action.attributesString ?? ''}>
                         ${action.title}
                     </option>
                 `;
@@ -313,10 +313,10 @@ export default class ZkDataGrid {
                     <div class="col-sm-12 col-md-5 col-lg-3 mb-2 mb-md-0">
                         <div class="input-group">
                             <select class="form-select mass-action-input">
-                                <option value="">Select action</option>
+                                <option value="">${massActionTitle}</option>
                                 ${optionsHtml}
                             </select>
-                            <button class="btn btn-outline-secondary btn-mass-action" type="button">Apply</button>
+                            <button class="btn btn-outline-primary btn-mass-action" type="button">Apply</button>
                         </div>
                     </div>
                 </div>
@@ -326,7 +326,7 @@ export default class ZkDataGrid {
 
     getDataTableTemplate() {
 
-        const { uid, columns, massActions, actions, data: { key, items, hasPages } } = this.gridObj;
+        const { columns, massActions, actions, data: { emptyText, loadingText, key, items, hasPages } } = this.gridObj;
 
         return `
             <div class="col-12 mb-2">
@@ -346,7 +346,7 @@ export default class ZkDataGrid {
                             </tr>
                         </thead>
                         <tbody class="grid-items">
-                            ${items?.length ? items.map((item) => `
+                            ${items?.length ? items.map((item, index) => `
                                     <tr class="grid-row">
                                         ${massActions && massActions.length ? `
                                             <td class="mass-action align-middle">
@@ -355,7 +355,7 @@ export default class ZkDataGrid {
                                                 </div>
                                             </td>
                                         ` : ''}
-                                        ${columns.map((column) => this.getItemTemplate(column, item)).join('')}
+                                        ${columns.map((column) => this.getItemTemplate(column, item, index)).join('')}
                                         ${item.actions?.length ? `
                                             <td class="row-action align-top">
                                                 ${item.actions.map((action) => this.getActionTemplate(action, item)).join('')}
@@ -365,12 +365,12 @@ export default class ZkDataGrid {
                                 `).join('') : ''}
                             <tr class="grid-empty-data" ${items?.length ? 'style="display: none;"' : ''}>
                                 <td colspan="${columns.length + (massActions?.length ? 1 : 0) + (actions?.length ? 1 : 0)}">
-                                    ${this.options.empty}
+                                    ${this.options.emptyText.replace(':text', emptyText)}
                                 </td>
                             </tr>
                             <tr class="grid-data-loader" style="display: none;">
                                 <td colspan="${columns.length + (massActions?.length ? 1 : 0) + (actions?.length ? 1 : 0)}">
-                                    ${this.options.dataLoader}
+                                    ${this.options.loadingText.replace(':text', loadingText)}
                                 </td>
                             </tr>
                         </tbody>
@@ -390,10 +390,14 @@ export default class ZkDataGrid {
         if (template) return template;
 
         const { baseUrl, data: { sort, order } } = this.gridObj;
-        const { index, title, sortable, column: col, filterable } = column;
+        const { index, title, sortable, column: col, filterable, headingAttributes = {}, headingAttributesString } = column;
+
+        let _classCss = headingAttributes.class ?? 'align-top';
+        _classCss += ' grid-column';
+        _classCss += (filterable ? ' grid-filter' : '');
 
         return `
-            <th class="align-top grid-column${filterable ? ' grid-filter' : ''}" data-index="${index}" data-sortable="${sortable ? 'true' : 'false'}" ${sort == col ? `data-order="${order}"` : ''}>
+            <th class="${_classCss}" data-index="${index}" data-sortable="${sortable ? 'true' : 'false'}" ${sort == col ? `data-order="${order}"` : ''} ${headingAttributesString ?? ''}>
                 ${sortable ? `<a href="${baseUrl}${column.sortableLink}" class="column-sort-link d-block">${title}</a>` : title}
                 ${filterable ? this.getFilterTemplate(column) : ''}
             </th>
@@ -439,14 +443,14 @@ export default class ZkDataGrid {
                 const _filterValue = Array.isArray(filterValue) ? filterValue : filterValue.split(',');
                 filterInput = `
                     <select ${attributesString} name="filters[${index}]${type == 'multiselect' ? '[]' : ''}">
-                        ${filterOptions.map((option) => `<option value="${option.value}" ${_filterValue.includes(option.value) ? 'selected' : ''}>${option.label}</option>`).join('')}
+                        ${filterOptions.map((option) => `<option value="${option.value}" ${_filterValue.includes(String(option.value)) ? 'selected' : ''}>${option.label}</option>`).join('')}
                     </select>
                 `;
                 break;
             case 'radio':
                 filterInput = filterOptions.map((option) => `
                     <div class="form-check form-check-inline">
-                        <input ${attributesString} type="radio" name="filters[${index}]" value="${option.value}" ${filterValue == option.value ? 'checked' : ''}>
+                        <input ${attributesString} type="radio" name="filters[${index}]" value="${option.value}" ${String(filterValue) == String(option.value) ? 'checked' : ''}>
                         <label class="form-check-label">${option.label}</label>
                     </div>
                 `).join('');
@@ -455,7 +459,7 @@ export default class ZkDataGrid {
                 const _filterCheckValue = Array.isArray(filterValue) ? filterValue : filterValue.split(',');
                 filterInput = filterOptions.map((option) => `
                     <div class="form-check form-check-inline">
-                        <input ${attributesString} type="checkbox" value="${option.value}" name="filters[${index}]${filterOptions.length > 1 ? '[]' : ''}" ${_filterCheckValue.includes(option.value) ? 'checked' : ''}>
+                        <input ${attributesString} type="checkbox" value="${option.value}" name="filters[${index}]${filterOptions.length > 1 ? '[]' : ''}" ${_filterCheckValue.includes(String(option.value)) ? 'checked' : ''}>
                         <label class="form-check-label">${option.label}</label>
                     </div>
                 `).join('');
@@ -468,8 +472,8 @@ export default class ZkDataGrid {
         return `
             <div class="mt-2 input-group input-${type}">
                 ${filterInput}
-                <button class="btn btn-outline-secondary btn-grid-filter" type="button">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-search" viewBox="0 0 16 16">
+                <button class="btn btn-outline-primary btn-grid-filter" type="button">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
                         <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0" />
                     </svg>
                 </button>
@@ -477,15 +481,20 @@ export default class ZkDataGrid {
         `;
     }
 
-    getItemTemplate(column, item) {
+    getItemTemplate(column, item, index) {
 
         let template = this.options.itemTemplate || null;
         if (typeof template === 'function') {
-            template = template(column, item, this.gridObj);
+            template = template(column, item, index, this.gridObj);
         }
         if (template) return template;
 
-        return `<td data-index="${column.index}">${item[column.column]}</td>`;
+        const { data: { start = 1 } } = this.gridObj;
+        const { index: colIndex, type, column: col, itemgAttributesString } = column;
+
+        return `<td data-index="${colIndex}" ${itemgAttributesString ?? ''}>
+            ${(type === 'serial-no') ? (start + index) : item[col]}
+        </td>`;
     }
 
     getActionTemplate(action, item) {
@@ -496,8 +505,11 @@ export default class ZkDataGrid {
         }
         if (template) return template;
 
-        const { method, formatter, attributes = {} } = action;
-        const { confirm } = attributes;
+        const { method, formatter, attributes = {}, attributesString = '' } = action;
+        const { confirm, class: _class } = attributes;
+
+        let _classCss = 'btn btn-md btn-' + (method === 'DELETE' ? 'danger' : 'primary');
+        _classCss = _class ?? _classCss;
 
         if (formatter) return formatter;
 
@@ -510,7 +522,7 @@ export default class ZkDataGrid {
                     <form action="${action.url}" method="POST" style="display: inline;" ${confirm ? `onsubmit="return confirm('${confirm}');"` : ''}>
                         <input type="hidden" name="_token" value="${this.gridObj.csrf_token}" autocomplete="off">
                         ${!['POST', 'GET'].includes(method) ? `<input type="hidden" name="_method" value="${method}">` : ''}
-                        <button type="submit" class="btn btn-md btn-${method === 'DELETE' ? 'danger' : 'primary'}">
+                        <button type="submit" class="${_classCss}" ${attributesString ?? ''}>
                             ${action.icon ? (action.formatIcon ? action.icon : `<i class="${action.icon}"></i>`) : ''}
                             ${action.title}
                         </button>
@@ -518,7 +530,7 @@ export default class ZkDataGrid {
                 `;
             default:
                 return `
-                    <a href="${action.url}" class="btn btn-md btn-primary">
+                    <a href="${action.url}" class="${_classCss}" ${confirm ? `onclick="return confirm('${confirm}');"` : ''} ${attributesString ?? ''}>
                         ${action.icon ? (action.formatIcon ? action.icon : `<i class="${action.icon}"></i>`) : ''}
                         ${action.title}
                     </a>
@@ -621,6 +633,10 @@ export default class ZkDataGrid {
 
         let fetchRequest;
 
+        const headers = {
+            'X-Requested-With': 'XMLHttpRequest',
+        };
+
         if (type === 'form') {
             const form = context.querySelector('.grid-form');
             if (!form) return;
@@ -630,18 +646,21 @@ export default class ZkDataGrid {
             const data = new FormData(form);
 
             fetchRequest = method === 'GET'
-                ? fetch(`${formUrl}${formUrl.includes('?') ? '&' : '?'}${new URLSearchParams(data).toString()}`)
-                : fetch(formUrl, { method, body: data });
+                ? fetch(`${formUrl}${formUrl.includes('?') ? '&' : '?'}${new URLSearchParams(data).toString()}`, { method, headers })
+                : fetch(formUrl, { method, body: data, headers });
         } else if (url) {
-            fetchRequest = fetch(url);
+            fetchRequest = fetch(url, { headers });
         } else {
             console.log(url);
             console.error('No URL provided for requestHandler');
             return;
         }
-
         fetchRequest
-            .then((res) => {
+            .then(async (res) => {
+                if (!res.ok) {
+                    const errorText = await res.text(); // Read error response as text
+                    throw new Error(errorText || `HTTP error! Status: ${res.status}`);
+                }
                 return res.json();
             })
             .then((data) => this.generate(data))
@@ -709,6 +728,7 @@ export default class ZkDataGrid {
                         form.appendChild(this.createInput('_method', method, 'mass-action-data-input'));
                     }
                 }
+                form.appendChild(this.createInput('massAction', action.value, 'mass-action-data-input'));
                 // Add Selected Items
                 await selected.forEach((el) => {
                     form.appendChild(this.createInput('selected[]', el.value, 'mass-action-data-input'));
@@ -722,6 +742,10 @@ export default class ZkDataGrid {
                     if (data.confirm) {
                         isConfirmMessage = data.confirm;
                     }
+                    Object.entries(data).forEach(([key, value]) => {
+                        if (key === 'confirm') return;
+                        form.appendChild(this.createInput(key, value, 'mass-action-data-input'));
+                    });
                 }
                 if (isConfirmMessage) {
                     if (confirm(isConfirmMessage)) {
