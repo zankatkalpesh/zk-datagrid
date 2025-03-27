@@ -4,7 +4,7 @@
    $class = 'btn btn-md btn-' . ($action['method'] === 'DELETE' ? 'danger' : 'primary');
    $class = $actionAttributes['class'] ?? $class;
 @endphp
-@if($action && $action['formatter'])
+@if($action && $action['formatter'] !== false)
     {!! $action['formatter'] !!}
 @elseif ($action && $action['url'])
     @switch ($action['method'])

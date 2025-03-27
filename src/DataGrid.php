@@ -7,6 +7,7 @@ namespace Zk\DataGrid;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\LazyCollection;
 use Zk\DataGrid\Contracts\DataSource;
 use Zk\DataGrid\DataSources\QueryDataSource;
@@ -143,6 +144,13 @@ class DataGrid
     protected ?array $output = null;
 
     /**
+     * Export final output data.
+     * 
+     * @var array
+     */
+    protected ?array $exportOutput = null;
+
+    /**
      * Mass action title text.
      * 
      * @var string
@@ -164,6 +172,29 @@ class DataGrid
     protected string $loadingText = 'Loading...';
 
     /**
+     * Advanced Search component.
+     *
+     */
+    protected $advancedSearchComponent;
+
+    /**
+     * Mass action component.
+     * 
+     */
+    protected $massActionComponent = 'datagrid::massaction';
+
+    /**
+     * Item component.
+     * 
+     */
+    protected $itemComponent = 'datagrid::item';
+
+    /**
+     * Pagination component.
+     */
+    protected $paginationComponent = 'datagrid::pagination';
+
+    /**
      * Meta data
      *
      * @var array
@@ -179,6 +210,58 @@ class DataGrid
     public function setPrimaryKey(string $primaryKey): self
     {
         $this->primaryKey = $primaryKey;
+
+        return $this;
+    }
+
+    /**
+     * Set Advanced Search Component.
+     * 
+     * @param string $advancedSearchComponent
+     * @return self
+     */
+    public function setAdvancedSearchComponent(string $advancedSearchComponent): self
+    {
+        $this->advancedSearchComponent = $advancedSearchComponent;
+
+        return $this;
+    }
+
+    /**
+     * Set Mass Action Component.
+     * 
+     * @param string $massActionComponent
+     * @return self
+     */
+    public function setMassActionComponent(string $massActionComponent): self
+    {
+        $this->massActionComponent = $massActionComponent;
+
+        return $this;
+    }
+
+    /**
+     * Set Item Component.
+     * 
+     * @param string $itemComponent
+     * @return self
+     */
+    public function setItemComponent(string $itemComponent): self
+    {
+        $this->itemComponent = $itemComponent;
+
+        return $this;
+    }
+
+    /**
+     * Set Pagination Component.
+     * 
+     * @param string $paginationComponent
+     * @return self
+     */
+    public function setPaginationComponent(string $paginationComponent): self
+    {
+        $this->paginationComponent = $paginationComponent;
 
         return $this;
     }
@@ -427,20 +510,25 @@ class DataGrid
 
     /**
      * Get columns.
+     * 
+     * @param string $type // all, export
+     * @return array
      */
-    public function getColumns(): array
+    public function getColumns($type = 'all'): array
     {
-        return $this->columns;
+        return LazyCollection::make($this->columns)
+            ->filter(fn($column) => $type === 'all' || ($type === 'export' && $column->isExport()))->all();
     }
 
     /** 
      * Get columns as array.
      * 
+     * @param string $type // all, export
      * @return array
      */
-    public function getColumnsArray(): array
+    public function getColumnsArray($type = 'all'): array
     {
-        return $this->mapToArray($this->columns);
+        return $this->mapToArray($this->getColumns($type));
     }
 
     /**
@@ -480,6 +568,24 @@ class DataGrid
     }
 
     /**
+     * Get advanced search.
+     * 
+     * @return mixed
+     */
+    public function getAdvancedSearch($output = null)
+    {
+        if ($this->advancedSearchComponent) {
+            $content = View::make($this->advancedSearchComponent, [
+                'grid' => $this,
+                'output' => $output
+            ])->render();
+
+            return '<div class="grid-advanced-search">' . $content . '</div>';
+        }
+        return null;
+    }
+
+    /**
      * Add column.
      * 
      * @param array $column
@@ -492,12 +598,15 @@ class DataGrid
             'sortable' => false,
             'searchable' => false,
             'filterable' => false,
+            'export' => true,
             'options' => null,
             'formatter' => null,
             'escape' => true,
             'attributes' => [],
             'headingAttributes' => [],
             'itemAttributes' => [],
+            'component' => 'datagrid::column',
+            'filterComponent' => 'datagrid::filter',
         ];
 
         $column = array_merge($defaults, $column);
@@ -517,12 +626,15 @@ class DataGrid
             sortable: $column['sortable'],
             searchable: $column['searchable'],
             filterable: $column['filterable'],
+            export: $column['export'],
             options: $column['options'],
             formatter: $column['formatter'],
             escape: $column['escape'],
             attributes: $column['attributes'],
             headingAttributes: $column['headingAttributes'],
-            itemAttributes: $column['itemAttributes']
+            itemAttributes: $column['itemAttributes'],
+            component: $column['component'],
+            filterComponent: $column['filterComponent']
         );
 
         if ($column['searchable'] ?? false) {
@@ -542,6 +654,7 @@ class DataGrid
             'formatter' => null,
             'escape' => true,
             'attributes' => [],
+            'component' => 'datagrid::action',
         ];
 
         $action = array_merge($defaults, $action);
@@ -554,7 +667,8 @@ class DataGrid
             url: $action['url'],
             formatter: $action['formatter'],
             escape: $action['escape'],
-            attributes: $action['attributes']
+            attributes: $action['attributes'],
+            component: $action['component']
         );
     }
 
@@ -598,7 +712,7 @@ class DataGrid
     {
         $output = $this->processOutput();
 
-        return view($view, $output);
+        return view($view, ['grid' => $output]);
     }
 
     /**
@@ -655,38 +769,9 @@ class DataGrid
     }
 
     /**
-     * Process output.
-     * 
-     * @param bool $format
-     * @return array
-     */
-    public function processOutput(bool $format = false)
-    {
-        if ($this->output !== null) {
-            return $this->output;
-        }
-
-        $this->init();
-        $this->processRequest($format);
-
-        $this->output = [
-            'csrf_token' => csrf_token(),
-            'uid' => $this->getUid(),
-            'baseUrl' => $this->getBaseUrl(),
-            'columns' => $this->getColumnsArray(),
-            'actions' => $this->getActionsArray(),
-            'massActions' => $this->getMassActionsArray(),
-            'massActionTitle' => $this->getMassActionTitle(),
-            'data' => $this->requestData,
-        ];
-
-        return $this->output;
-    }
-
-    /**
      * Object DataGrid initialization.
      */
-    protected function init()
+    public function init()
     {
         $methods = ['prepareItems', 'prepareColumns', 'prepareActions', 'prepareMassActions'];
         foreach ($methods as $method) {
@@ -710,6 +795,74 @@ class DataGrid
     }
 
     /**
+     * Process output.
+     * 
+     * @param bool $format
+     * @return array
+     */
+    public function processOutput(bool $format = false)
+    {
+        if ($this->output !== null) {
+            return $this->output;
+        }
+
+        $this->init();
+
+        $this->processRequest($format);
+
+        $this->output = [
+            'csrf_token' => csrf_token(),
+            'uid' => $this->getUid(),
+            'baseUrl' => $this->getBaseUrl(),
+            'columns' => $this->getColumnsArray(),
+            'actions' => $this->getActionsArray(),
+            'massActions' => $this->getMassActionsArray(),
+            'massActionTitle' => $this->getMassActionTitle(),
+            'data' => $this->requestData,
+        ];
+
+        $this->output['advancedSearch'] = $this->getAdvancedSearch($this->output);
+        if ($this->massActionComponent) {
+            $this->output['massActionComponent'] = $this->massActionComponent;
+        }
+
+        if ($this->itemComponent) {
+            $this->output['itemComponent'] = $this->itemComponent;
+        }
+
+        if ($this->paginationComponent) {
+            $this->output['paginationComponent'] = $this->paginationComponent;
+        }
+
+        return $this->output;
+    }
+
+    /**
+     * Export datagrid.
+     * 
+     * @param bool $all
+     * @param array $options
+     * @return array
+     */
+    public function export(bool $all = false, array $options = []): array
+    {
+        if ($this->exportOutput !== null) {
+            return $this->exportOutput;
+        }
+
+        $data = $this->processExport($all, $options);
+
+        $this->exportOutput = [
+            'all' => $all,
+            'columns' => $this->getColumnsArray('export'),
+            'data' => $data,
+            'options' => $options,
+        ];
+
+        return $this->exportOutput;
+    }
+
+    /**
      * Validated request.
      */
     public function validatedRequest(): array
@@ -719,11 +872,10 @@ class DataGrid
             'filters' => ['sometimes', 'required', 'array'],
             'sort' => ['sometimes', 'required', 'array'],
             'page'  => ['sometimes', 'required', 'numeric'],
-            'limit' => ['sometimes', 'required', 'numeric'],
-            'export' => ['sometimes', 'required', 'string'],
+            'limit' => ['sometimes', 'required', 'numeric']
         ]);
 
-        return request()->only(['search', 'filters', 'sort', 'page', 'export', 'limit']);
+        return request()->only(['search', 'filters', 'sort', 'page', 'limit']);
     }
 
     /**
@@ -750,7 +902,7 @@ class DataGrid
         $paginator = $items = $total = $start = $end = $links = null;
         $hasPages = $currentPage = $hasMorePages = 0;
 
-        // Query and process only if format is false
+        // Query processing if format is false
         if (!$format) {
             $paginator = $this->search($search)
                 ->filters($filters)
@@ -789,6 +941,60 @@ class DataGrid
             'requestQuery' => request()->query(),
             'emptyText' => $this->emptyText,
             'loadingText' => $this->loadingText,
+        ];
+    }
+
+    /**
+     * Process export.
+     * 
+     * @param bool $all
+     * @param array $options
+     * @return mixed
+     */
+    public function processExport(bool $all = false, array $options = []): mixed
+    {
+        $this->init();
+
+        $request = $this->validatedRequest();
+
+        $limit = min($request['limit'] ?? $this->itemsPerPage, $this->maxItemsPerPage);
+        $search = $request['search'] ?? null;
+        $filters = $request['filters'] ?? [];
+        $sort = $request['sort'] ?? [];
+
+        // Default values
+        $hasPages = $currentPage = $hasMorePages = $total = $start = $end = 0;
+
+        $this->search($search)
+            ->filters($filters)
+            ->sort($sort);
+
+        if ($all) {
+            $items = $this->dataSource->all();
+            $total = $items->count();
+        } else {
+            $paginator = $this->paginate($limit)->appends(request()->query());
+            $items = $paginator->items();
+            $total = $paginator->total();
+            $hasPages = $paginator->hasPages();
+            $currentPage = $paginator->currentPage();
+            $start = $paginator->firstItem();
+            $end = $paginator->lastItem();
+            $hasMorePages = $paginator->hasMorePages();
+            $limit = $paginator->perPage();
+        }
+
+        $items = $this->format($items, 'export', $options);
+
+        return [
+            'items' => $items,
+            'total' => $total,
+            'hasPages' => $hasPages,
+            'currentPage' => $currentPage,
+            'start' => $start,
+            'end' => $end,
+            'limit' => $limit,
+            'hasMorePages' => $hasMorePages,
         ];
     }
 
@@ -870,9 +1076,56 @@ class DataGrid
      * Format data.
      * 
      * @param mixed $data
+     * @param string $type
+     * @param array $options
      * @return mixed
      */
-    public function format($data)
+    public function format($data, $type = null, $options = [])
+    {
+        if ($type === 'export') {
+            return $this->formatExport($data, $options);
+        }
+
+        return $this->formatGrid($data);
+    }
+
+    /**
+     * Format export.
+     * 
+     * @param mixed $data
+     * @param array $options
+     * @return mixed
+     */
+    public function formatExport($data, $options = [])
+    {
+        $formatterColumns = collect($this->columns)->filter(fn($column) => $column->isExport() && ($column->isExportCallback() || $column->isFormatter()));
+
+        if ($formatterColumns->isEmpty()) {
+            return $data;
+        }
+
+        return collect($data)->map(function ($item) use ($formatterColumns, $options) {
+            $formatted = is_array($item) ? $item : $item->toArray();
+            // Format columns
+            foreach ($formatterColumns as $column) {
+                if ($column->isExportCallback()) {
+                    $formatted[$column->getColumn()] = $column->getExportFormatter()($item, $column, $options);
+                } else {
+                    $formatted[$column->getColumn()] = $column->getFormatter()($item, $column, $options);
+                }
+            }
+
+            return $formatted;
+        });
+    }
+
+    /**
+     * Format grid.
+     * 
+     * @param mixed $data
+     * @return mixed
+     */
+    public function formatGrid($data)
     {
         $formatterColumns = collect($this->columns)->filter->isFormatter();
         $formatterActions = collect($this->actions);
@@ -904,7 +1157,7 @@ class DataGrid
      * 
      * @return array
      */
-    protected function formatAction($item, Action $action): array
+    public function formatAction($item, Action $action): array
     {
         $actionArray = $action->toArray();
 

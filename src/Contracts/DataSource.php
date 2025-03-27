@@ -26,6 +26,11 @@ interface DataSource
     public function sort(array $columns, array $orders): void;
 
     /**
+     * All items
+     */
+    public function all(): mixed;
+
+    /**
      * @param int $perPage
      * @param array $columns
      * @param string $pageName

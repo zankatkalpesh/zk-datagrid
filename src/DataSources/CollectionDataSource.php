@@ -15,9 +15,9 @@ use Zk\DataGrid\Column;
 class CollectionDataSource implements DataSource
 {
 
-    protected Collection $data;
+    public Collection $data;
 
-    protected Collection $processedData;
+    public Collection $processedData;
 
     /**
      * @param Collection $data
@@ -71,7 +71,7 @@ class CollectionDataSource implements DataSource
     {
         $filterColumns = collect($columns)->filter(function ($column) use ($filters) {
             if ($column->getColumn() === '') return false;
-            
+
             $colIndex = $column->getIndex();
             return $column->isFilterable() && isset($filters[$colIndex]) && $filters[$colIndex] !== '';
         });
@@ -126,6 +126,14 @@ class CollectionDataSource implements DataSource
                 $this->processedData = $this->processedData->sortByDesc($column);
             }
         });
+    }
+
+    /**
+     * All items
+     */
+    public function all(): Collection
+    {
+        return $this->processedData;
     }
 
     /**

@@ -9,8 +9,6 @@ use Illuminate\Support\Arr;
 class Column
 {
 
-    use Traits\GeneralMethods;
-
     public $path = '/';
 
     /**
@@ -19,20 +17,6 @@ class Column
      * @var array
      */
     protected ?array $output = null;
-
-    /**
-     * Heading attributes string.
-     * 
-     * @var string
-     */
-    protected string $headingAttrStr;
-
-    /**
-     * Item attributes string.
-     * 
-     * @var string
-     */
-    protected string $itemAttrStr;
 
     /**
      * Create a column instance.
@@ -45,19 +29,18 @@ class Column
         public bool $sortable = false,
         public mixed $searchable = false,
         public mixed $filterable = false,
+        public mixed $export = true,
         public mixed $options = null,
         public mixed $formatter = null,
         public bool $escape = true,
         public array $attributes = [],
         public array $headingAttributes = [],
         public array $itemAttributes = [],
+        public string $component = 'datagrid::column',
         public mixed $filterComponent = 'datagrid::filter',
     ) {
         $this->headingAttributes = (!empty($this->headingAttributes)) ? $this->headingAttributes : $this->attributes;
         $this->itemAttributes = (!empty($this->itemAttributes)) ? $this->itemAttributes : $this->attributes;
-
-        $this->headingAttrStr = $this->printAttributes($this->headingAttributes, ['class']);
-        $this->itemAttrStr = $this->printAttributes($this->itemAttributes);
     }
 
     /**
@@ -245,6 +228,36 @@ class Column
     }
 
     /**
+     * is export.
+     * 
+     * @return bool
+     */
+    public function isExport(): bool
+    {
+        return $this->export != false;
+    }
+
+    /**
+     * is export callback.
+     * 
+     * @return bool
+     */
+    public function isExportCallback(): bool
+    {
+        return is_callable($this->export);
+    }
+
+    /**
+     * Get export formatter.
+     * 
+     * @return mixed
+     */
+    public function getExportFormatter(): mixed
+    {
+        return $this->export;
+    }
+
+    /**
      * is escape.
      * 
      * @return bool
@@ -265,16 +278,6 @@ class Column
     }
 
     /**
-     * Get heading attributes string.
-     * 
-     * @return string
-     */
-    public function getHeadingAttributesString(): string
-    {
-        return $this->headingAttrStr;
-    }
-
-    /**
      * Get item attributes.
      * 
      * @return array
@@ -285,16 +288,6 @@ class Column
     }
 
     /**
-     * Get item attributes string.
-     * 
-     * @return string
-     */
-    public function getItemAttributesString(): string
-    {
-        return $this->itemAttrStr;
-    }
-
-    /**
      * Get filter component.
      * 
      * @return string
@@ -302,6 +295,16 @@ class Column
     public function getFilterComponent(): string
     {
         return $this->filterComponent;
+    }
+
+    /**
+     * Get component.
+     * 
+     * @return string
+     */
+    public function getComponent(): string
+    {
+        return $this->component;
     }
 
     /**
@@ -326,11 +329,11 @@ class Column
             'filterable' => $this->isFilterable(),
             'options' => $this->getOptions(),
             'formatter' => $this->isFormatter(),
+            'export' => $this->isExport(),
             'escape' => $this->isEscape(),
             'headingAttributes' => $this->getHeadingAttributes(),
-            'headingAttributesString' => $this->getHeadingAttributesString(),
             'itemAttributes' => $this->getItemAttributes(),
-            'itemAttributesString' => $this->getItemAttributesString(),
+            'component' => $this->getComponent(),
             'filterComponent' => $this->getFilterComponent(),
         ];
 

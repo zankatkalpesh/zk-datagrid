@@ -134,6 +134,9 @@ export default class ZkDataGrid {
         // Build Form
         this.buildForm(this.context);
 
+        // Build Advanced Search
+        this.buildAdvancedSearch(this.context);
+
         // Build Search
         this.buildSearch(this.context);
 
@@ -155,6 +158,22 @@ export default class ZkDataGrid {
 
         if (template) {
             context.appendChild(this.stringToHTML(template));
+        }
+    }
+
+    buildAdvancedSearch(context) {
+        if (!this.gridObj?.advancedSearch) return;
+
+        let template = this.options.advancedSearchTemplate || null;
+
+        if (typeof template === 'function') {
+            template = template(this.gridObj);
+        }
+
+        if (template) {
+            context.appendChild(this.stringToHTML(template));
+        } else {
+            context.appendChild(this.stringToHTML(this.gridObj.advancedSearch));
         }
     }
 
@@ -233,7 +252,7 @@ export default class ZkDataGrid {
         const { requestQuery } = data;
 
         const renderHiddenInputs = (data, parentKey = '') => {
-            const skipKeys = new Set(['page', 'limit', 'search', 'filters']);
+            const skipKeys = new Set(['page', 'limit', 'search', 'filters', 'adv']);
             return Object.entries(data)
                 .filter(([key]) => !skipKeys.has(key))
                 .map(([key, value]) => {
@@ -273,6 +292,12 @@ export default class ZkDataGrid {
                                     <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0" />
                                 </svg>
                             </button>
+                            ${(search != '') ? `
+                            <button class="btn btn-outline-secondary btn-grid-search-clear" type="button">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8z"/>
+                                </svg>
+                            </button>` : ''}
                         </div>
                     `: ``}
                     </div>
@@ -477,6 +502,12 @@ export default class ZkDataGrid {
                         <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0" />
                     </svg>
                 </button>
+                ${(filterValue != '') ? `
+                <button class="btn btn-outline-secondary btn-grid-filter-clear" type="button">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8z"/>
+                    </svg>
+                </button>` : ''}
             </div>
         `;
     }
@@ -511,7 +542,7 @@ export default class ZkDataGrid {
         let _classCss = 'btn btn-md btn-' + (method === 'DELETE' ? 'danger' : 'primary');
         _classCss = _class ?? _classCss;
 
-        if (formatter) return formatter;
+        if (formatter !== false) return formatter;
 
         switch (method) {
             case 'POST':
@@ -583,6 +614,10 @@ export default class ZkDataGrid {
         const inputs = this.context?.querySelectorAll(selector);
         if (form && inputs) {
             inputs.forEach((input) => {
+                let _old = form.querySelector(`input[name="${input.name}"], select[name="${input.name}"]`);
+                if (_old) {
+                    _old.remove();
+                }
                 let value = input.value;
                 const isMultiple = input.tagName === 'SELECT' && input.multiple;
                 if (isMultiple) {
@@ -603,9 +638,25 @@ export default class ZkDataGrid {
         }
     }
 
+    clearInput(el) {
+        if (el.type === 'checkbox' || el.type === 'radio') {
+            el.checked = false;
+        } else {
+            el.value = '';
+        }
+    }
+
+    clearInputs(selector) {
+        const inputs = this.context?.querySelectorAll(selector);
+        if (inputs) {
+            inputs.forEach((input) => this.clearInput(input));
+        }
+    }
+
     onSubmit(isLazy = false) {
 
         this.removeInput('.grid-form .grid-data-input');
+        this.addInputToForm('.grid-advanced-search input[name^="adv["], .grid-advanced-search select[name^="adv["]');
         this.addInputToForm('.grid-input input, .grid-input select');
         this.addInputToForm('.grid-filter .grid-filter-input');
         if (!isLazy) {
@@ -676,13 +727,49 @@ export default class ZkDataGrid {
 
     registerEvents(isLazy = false) {
 
-        this.context?.querySelectorAll('.btn-grid-search, .grid-filter .btn-grid-filter')
+        this.context?.querySelectorAll('.btn-grid-search, .grid-filter .btn-grid-filter, .grid-advanced-search .btn-grid-advanced-search')
             ?.forEach((el) => el.addEventListener('click', () => this.onSubmit(isLazy)));
+
+        this.context?.querySelectorAll('.btn-grid-search-clear')
+            ?.forEach((el) => el.addEventListener('click', () => {
+                this.context?.querySelectorAll('.grid-input input[name^="search"]')
+                    ?.forEach((el) => el.value = '');
+                this.onSubmit(isLazy);
+            }));
+
+        this.context?.querySelectorAll('.grid-advanced-search .btn-grid-advanced-search-clear')
+            ?.forEach((el) => el.addEventListener('click', () => {
+                this.clearInputs('.grid-advanced-search input[name^="adv["], .grid-advanced-search select[name^="adv["]');
+                this.onSubmit(isLazy);
+            }));
+
+        this.context?.querySelectorAll('.btn-grid-filter-clear-all')
+            ?.forEach((el) => el.addEventListener('click', () => {
+                this.clearInputs('.grid-filter .grid-filter-input');
+                this.onSubmit(isLazy);
+            }));
+
+        this.context?.querySelectorAll('.grid-filter .btn-grid-filter-clear')
+            ?.forEach((el) => el.addEventListener('click', (event) => {
+                const inputs = event.target.closest('.grid-filter').querySelectorAll('.grid-filter-input');
+                if (inputs) {
+                    inputs.forEach((input) => this.clearInput(input));
+                }
+                this.onSubmit(isLazy);
+            }));
+
+        this.context?.querySelectorAll('.btn-grid-clear-all')
+            ?.forEach((el) => el.addEventListener('click', () => {
+                this.clearInputs('.grid-input input, .grid-input select');
+                this.clearInputs('.grid-filter .grid-filter-input');
+                this.clearInputs('.grid-advanced-search input[name^="adv["], .grid-advanced-search select[name^="adv["]');
+                this.onSubmit(isLazy);
+            }));
 
         this.context?.querySelectorAll('.grid-change')
             ?.forEach((el) => el.addEventListener('change', () => this.onSubmit(isLazy)));
 
-        this.context?.querySelectorAll('.grid-input input, .grid-filter input.grid-filter-input')
+        this.context?.querySelectorAll('.grid-input input, .grid-filter input.grid-filter-input, .grid-advanced-search input[name^="adv["]')
             ?.forEach((el) => el.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') {
                     e.preventDefault();

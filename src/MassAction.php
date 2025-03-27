@@ -6,22 +6,12 @@ namespace Zk\DataGrid;
 
 class MassAction
 {
-
-    use Traits\GeneralMethods;
-
     /**
      * Final output data.
      * 
      * @var array
      */
     protected ?array $output = null;
-
-    /**
-     * Attributes string.
-     * 
-     * @var string
-     */
-    protected string $attrStr;
 
     /**
      * Create a mass action instance.
@@ -37,18 +27,7 @@ class MassAction
         public array $options = [],
         public array $params = [],
         public array $attributes = []
-    ) {
-        $this->attrStr = $this->printAttributes($this->attributes);
-
-        // Options attributes string
-        if (!empty($this->options)) {
-            $this->options = array_map(function ($opt) {
-                $opt['attributes'] = $opt['attributes'] ?? [];
-                $opt['attributesString'] = $this->printAttributes($opt['attributes']);
-                return $opt;
-            }, $this->options);
-        }
-    }
+    ) {}
 
     /**
      * Get index.
@@ -161,16 +140,6 @@ class MassAction
     }
 
     /**
-     * Get attributes string.
-     * 
-     * @return string
-     */
-    public function getAttributesString(): string
-    {
-        return $this->attrStr;
-    }
-
-    /**
      * Transform the mass action to an array.
      * 
      * @return array
@@ -192,7 +161,6 @@ class MassAction
             'options' => $this->getOptions(),
             'params' => $this->getParams(),
             'attributes' => $this->getAttributes(),
-            'attributesString' => $this->getAttributesString(),
         ];
 
         return $this->output;

@@ -117,6 +117,14 @@ class QueryDataSource implements DataSource
     }
 
     /**
+     * All items
+     */
+    public function all(): mixed
+    {
+        return $this->query->get();
+    }
+
+    /**
      * @param int $perPage
      * @param array $columns
      * @param string $pageName
