@@ -899,8 +899,7 @@ class DataGrid
         $sort = $request['sort'] ?? [];
 
         // Default values
-        $paginator = $items = $total = $start = $end = $links = null;
-        $hasPages = $currentPage = $hasMorePages = 0;
+        $paginator = $items = $total = $start = $end = $links = $hasPages = $currentPage = $hasMorePages = null;
 
         // Query processing if format is false
         if (!$format) {
@@ -963,7 +962,7 @@ class DataGrid
         $sort = $request['sort'] ?? [];
 
         // Default values
-        $hasPages = $currentPage = $hasMorePages = $total = $start = $end = 0;
+        $total = $hasPages = $currentPage = $hasMorePages = $start = $end = null;
 
         $this->search($search)
             ->filters($filters)
