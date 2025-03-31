@@ -25,12 +25,13 @@ class Column
         public int $index,
         public string $column,
         public string $type,
+        public mixed $alias = '',
         public mixed $title = null,
         public bool $sortable = false,
         public mixed $searchable = false,
         public mixed $filterable = false,
         public mixed $export = true,
-        public mixed $options = null,
+        public mixed $filterParams = null,
         public mixed $formatter = null,
         public bool $escape = true,
         public array $attributes = [],
@@ -62,6 +63,16 @@ class Column
     }
 
     /**
+     * Get alias.
+     * 
+     * @return string
+     */
+    public function getAlias(): string
+    {
+        return $this->alias != '' ? $this->alias : $this->column;
+    }
+
+    /**
      * Get title.
      * 
      * @return string
@@ -70,7 +81,7 @@ class Column
     {
         if ($this->title == null) {
             // Convert string to human readable
-            $str = ucwords($this->column, '-');
+            $str = ucwords($this->getAlias(), '-');
             $str = ucwords($str, '_');
             $this->title = str_replace(['-', '_'], ' ', $str);
         }
@@ -89,16 +100,16 @@ class Column
     }
 
     /**
-     * Get options.
+     * Get filter params.
      * 
      * @return mixed
      */
-    public function getOptions(): mixed
+    public function getFilterParams(): mixed
     {
         if (!$this->isFilterable()) {
             return [];
         }
-        if ($this->options == null) {
+        if ($this->filterParams == null) {
             return [
                 'type' => 'text',
                 'attributes' => [
@@ -108,11 +119,11 @@ class Column
         }
 
         // If options is callable, call it
-        if (is_callable($this->options)) {
-            return call_user_func($this->options, $this);
+        if (is_callable($this->filterParams)) {
+            return call_user_func($this->filterParams, $this);
         }
 
-        return $this->options;
+        return $this->filterParams;
     }
 
     /**
@@ -321,13 +332,14 @@ class Column
         $this->output = [
             'index' => $this->getIndex(),
             'column' => $this->getColumn(),
+            'alias' => $this->getAlias(),
             'title' => $this->getTitle(),
             'type' => $this->getType(),
             'sortable' => $this->isSortable(),
             'sortableLink' => $this->getSortableLink(),
             'searchable' => $this->isSearchable(),
             'filterable' => $this->isFilterable(),
-            'options' => $this->getOptions(),
+            'filterParams' => $this->getFilterParams(),
             'formatter' => $this->isFormatter(),
             'export' => $this->isExport(),
             'escape' => $this->isEscape(),

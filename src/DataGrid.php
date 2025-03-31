@@ -594,12 +594,13 @@ class DataGrid
     {
         $defaults = [
             'type' => 'string',
+            'alias' => '',
             'title' => null,
             'sortable' => false,
             'searchable' => false,
             'filterable' => false,
             'export' => true,
-            'options' => null,
+            'filterParams' => null,
             'formatter' => null,
             'escape' => true,
             'attributes' => [],
@@ -622,12 +623,13 @@ class DataGrid
             index: count($this->columns),
             column: $column['column'],
             type: $column['type'],
+            alias: $column['alias'],
             title: $column['title'],
             sortable: $column['sortable'],
             searchable: $column['searchable'],
             filterable: $column['filterable'],
             export: $column['export'],
-            options: $column['options'],
+            filterParams: $column['filterParams'],
             formatter: $column['formatter'],
             escape: $column['escape'],
             attributes: $column['attributes'],
@@ -1108,9 +1110,9 @@ class DataGrid
             // Format columns
             foreach ($formatterColumns as $column) {
                 if ($column->isExportCallback()) {
-                    $formatted[$column->getColumn()] = $column->getExportFormatter()($item, $column, $options);
+                    $formatted[$column->getAlias()] = $column->getExportFormatter()($item, $column, $options);
                 } else {
-                    $formatted[$column->getColumn()] = $column->getFormatter()($item, $column, $options);
+                    $formatted[$column->getAlias()] = $column->getFormatter()($item, $column, $options);
                 }
             }
 
@@ -1138,7 +1140,7 @@ class DataGrid
             // Format columns
             if (!$formatterColumns->isEmpty()) {
                 foreach ($formatterColumns as $column) {
-                    $formatted[$column->getColumn()] = $column->getFormatter()($item, $column);
+                    $formatted[$column->getAlias()] = $column->getFormatter()($item, $column);
                 }
             }
             // Add actions

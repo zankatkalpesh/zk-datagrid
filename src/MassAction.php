@@ -58,25 +58,13 @@ class MassAction
     }
 
     /**
-     * is callable icon.
-     * 
-     * @return bool
-     */
-    public function isCallableIcon(): bool
-    {
-        return $this->icon != null && is_callable($this->icon);
-    }
-
-    /**
      * Get icon.
      * 
      * @return mixed
      */
     public function getIcon(): mixed
     {
-        $icon = $this->icon;
-
-        return ($this->isCallableIcon()) ? $icon() : $icon;
+        return $this->icon;
     }
 
     /**

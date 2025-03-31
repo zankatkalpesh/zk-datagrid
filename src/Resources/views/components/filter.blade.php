@@ -1,11 +1,11 @@
 @props(['column', 'grid'])
 
 @php
-    $filterOptions = $column['options'];
-    $filterOptions['type'] = $filterOptions['type'] ?? 'text';
-    $attr = $filterOptions['attributes'] ?? [];
+    $filterParams = $column['filterParams'] ?? [];
+    $filterParams['type'] = $filterParams['type'] ?? 'text';
+    $attr = $filterParams['attributes'] ?? [];
     if(!isset($attr['class'])) {
-        match ($filterOptions['type']) {
+        match ($filterParams['type']) {
             'select', 'multiselect' => $attr['class'] = 'form-select',
             'radio', 'checkbox' => $attr['class'] = 'form-check-input',
             default => $attr['class'] = 'form-control'
@@ -13,22 +13,22 @@
     }
     $attr['class'] .= ' grid-filter-input';
     $attr['name'] = 'filters['.$column['index'].']';
-    if($filterOptions['type'] === 'multiselect') {
+    if($filterParams['type'] === 'multiselect') {
         $attr['multiple'] = 'multiple';
         $attr['name'] .= '[]';
     }
-    if($filterOptions['type'] === 'checkbox') {
-        $attr['name'] .= (count($filterOptions['options']) > 1) ? '[]' : '';
+    if($filterParams['type'] === 'checkbox') {
+        $attr['name'] .= (count($filterParams['options']) > 1) ? '[]' : '';
     }
     $filterValue = $grid['data']['filters'][$column['index']] ?? '';
 @endphp
 
-<div class="mt-2 input-group input-{{ $filterOptions['type'] }}">
-    @switch($filterOptions['type'])
+<div class="mt-2 input-group input-{{ $filterParams['type'] }}">
+    @switch($filterParams['type'])
         @case('select')
         @case('multiselect')
             <select {{ $attributes->merge($attr) }}>
-                @foreach($filterOptions['options'] as $option)
+                @foreach($filterParams['options'] as $option)
                     <option value="{{ $option['value'] }}" @if(in_array($option['value'], (array) $filterValue)) selected @endif>
                         {{ $option['label'] }}
                     </option>
@@ -36,7 +36,7 @@
             </select>
         @break
         @case('radio')
-            @foreach($filterOptions['options'] as $option)
+            @foreach($filterParams['options'] as $option)
                 <div class="form-check form-check-inline">
                     <input type="radio" {{ $attributes->merge($attr) }} value="{{ $option['value'] }}" @if($option['value'] == $filterValue) checked @endif />
                     <label class="form-check-label">{{ $option['label'] }}</label>
@@ -44,7 +44,7 @@
             @endforeach
         @break
         @case('checkbox')
-            @foreach($filterOptions['options'] as $option)
+            @foreach($filterParams['options'] as $option)
                 <div class="form-check form-check-inline">
                     <input type="checkbox" {{ $attributes->merge($attr) }} value="{{ $option['value'] }}" @if(in_array($option['value'], (array) $filterValue)) checked @endif/>
                     <label class="form-check-label">{{ $option['label'] }}</label>
@@ -52,7 +52,7 @@
             @endforeach
         @break
         @default
-            <input type="{{ $filterOptions['type'] }}" {{ $attributes->merge($attr) }} value="{{ $filterValue }}">
+            <input type="{{ $filterParams['type'] }}" {{ $attributes->merge($attr) }} value="{{ $filterValue }}">
     @endswitch
     <button class="btn btn-outline-primary btn-grid-filter" type="button">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">

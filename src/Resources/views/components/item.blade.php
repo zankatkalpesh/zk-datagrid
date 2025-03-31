@@ -19,9 +19,9 @@
             @if ($column['type'] === 'serial-no')
                 {{ $index }}
             @elseif ($column['escape'])
-                {{ $item[$column['column']] }}
+                {{ $item[$column['alias']] }}
             @else
-                {!! $item[$column['column']] !!}
+                {!! $item[$column['alias']] !!}
             @endif
         </td>
     @endforeach

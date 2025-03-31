@@ -246,6 +246,33 @@ export default class ZkDataGrid {
         this.subscribers[eventName].forEach(subscriber => subscriber(data));
     }
 
+    getAttributesString(attributes) {
+        if (!attributes || typeof attributes !== 'object') return '';
+        return Object.entries(attributes).map(([key, value]) => {
+            if (typeof value === 'object') {
+                return `${key}="${JSON.stringify(value)}"`;
+            } else if (isNaN(key)) {
+                return `${key}="${value}"`;
+            }
+            // Handle boolean attributes
+            return `${value}="true"`;
+        }).join(' ');
+    }
+
+    setElementAttributes(element, attributes) {
+        if (typeof attributes !== 'object') return;
+        Object.entries(attributes).forEach(([key, value]) => {
+            if (typeof value === 'object') {
+                element.setAttribute(key, JSON.stringify(value));
+            } else if (isNaN(key)) {
+                element.setAttribute(key, value);
+            } else {
+                // Handle boolean attributes
+                element.setAttribute(key, 'true');
+            }
+        });
+    }
+
     getFormTemplate() {
 
         const { uid, baseUrl, data } = this.gridObj;
@@ -270,7 +297,7 @@ export default class ZkDataGrid {
 
         const { uid } = this.gridObj;
         const { perPageOptions, limit, hasSearch, search } = this.gridObj.data;
-
+console.log('search', search);
         return `
             <div class="col-12 mb-2 grid-input">
                 <div class="row">
@@ -292,7 +319,7 @@ export default class ZkDataGrid {
                                     <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0" />
                                 </svg>
                             </button>
-                            ${(search != '') ? `
+                            ${(search && search != '') ? `
                             <button class="btn btn-outline-secondary btn-grid-search-clear" type="button">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
                                     <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8z"/>
@@ -314,15 +341,25 @@ export default class ZkDataGrid {
             if (action.options && action.options.length) {
                 // Render optgroup with nested options
                 const optgroupOptions = action.options.map((option, index) => `
-                    <option data-url="${option.url || action.url || ''}" data-method="${option.method || action.method || ''}" data-params='${JSON.stringify(option.params || action.params || {})}' value="${option.value || index}" ${option.attributesString ?? ''}>
+                    <option 
+                        ${this.getAttributesString(option.attributes ?? {})}
+                        data-url="${option.url || action.url || ''}"
+                        data-method="${option.method || action.method || ''}"
+                        data-params='${JSON.stringify(option.params || action.params || {})}'
+                        value="${option.value || index}">
                         ${option.label}
                     </option>
                 `).join('');
-                return `<optgroup label="${action.title}" ${action.attributesString ?? ''}>${optgroupOptions}</optgroup>`;
+                return `<optgroup label="${action.title}" ${this.getAttributesString(action.attributes ?? {})}>${optgroupOptions}</optgroup>`;
             } else {
                 // Render single option
                 return `
-                    <option data-url="${action.url || ''}" data-method="${action.method || ''}" data-params='${JSON.stringify(action.params || {})}' value="${action.value || action.index}" ${action.attributesString ?? ''}>
+                    <option
+                        ${this.getAttributesString(action.attributes ?? {})}
+                        data-url="${action.url || ''}"
+                        data-method="${action.method || ''}"
+                        data-params='${JSON.stringify(action.params || {})}'
+                        value="${action.value || action.index}">
                         ${action.title}
                     </option>
                 `;
@@ -351,7 +388,7 @@ export default class ZkDataGrid {
 
     getDataTableTemplate() {
 
-        const { columns, massActions, actions, data: { emptyText, loadingText, key, items, hasPages } } = this.gridObj;
+        const { columns, massActions, actions, data: { emptyText, loadingText, items, hasPages } } = this.gridObj;
 
         return `
             <div class="col-12 mb-2">
@@ -371,23 +408,7 @@ export default class ZkDataGrid {
                             </tr>
                         </thead>
                         <tbody class="grid-items">
-                            ${items?.length ? items.map((item, index) => `
-                                    <tr class="grid-row">
-                                        ${massActions && massActions.length ? `
-                                            <td class="mass-action align-middle">
-                                                <div class="form-check form-check-inline m-0 px-2">
-                                                    <input style="width: 16px;" class="form-check mass-row-input" type="checkbox" name="selected[]" value="${item[key]}">
-                                                </div>
-                                            </td>
-                                        ` : ''}
-                                        ${columns.map((column) => this.getItemTemplate(column, item, index)).join('')}
-                                        ${item.actions?.length ? `
-                                            <td class="row-action align-top">
-                                                ${item.actions.map((action) => this.getActionTemplate(action, item)).join('')}
-                                            </td>
-                                        ` : ''}
-                                    </tr>
-                                `).join('') : ''}
+                            ${items?.length ? items.map((item, index) => this.getItemTemplate(item, index)).join('') : ''}
                             <tr class="grid-empty-data" ${items?.length ? 'style="display: none;"' : ''}>
                                 <td colspan="${columns.length + (massActions?.length ? 1 : 0) + (actions?.length ? 1 : 0)}">
                                     ${this.options.emptyText.replace(':text', emptyText)}
@@ -415,14 +436,14 @@ export default class ZkDataGrid {
         if (template) return template;
 
         const { baseUrl, data: { sort, order } } = this.gridObj;
-        const { index, title, sortable, column: col, filterable, headingAttributes = {}, headingAttributesString } = column;
+        const { index, title, sortable, column: col, filterable, headingAttributes = {} } = column;
 
-        let _classCss = headingAttributes.class ?? 'align-top';
-        _classCss += ' grid-column';
-        _classCss += (filterable ? ' grid-filter' : '');
+        headingAttributes.class = headingAttributes.class ?? 'align-top';
+        headingAttributes.class += ' grid-column';
+        headingAttributes.class += (filterable ? ' grid-filter' : '');
 
         return `
-            <th class="${_classCss}" data-index="${index}" data-sortable="${sortable ? 'true' : 'false'}" ${sort == col ? `data-order="${order}"` : ''} ${headingAttributesString ?? ''}>
+            <th ${this.getAttributesString(headingAttributes)} data-index="${index}" data-sortable="${sortable ? 'true' : 'false'}" ${sort == col ? `data-order="${order}"` : ''}>
                 ${sortable ? `<a href="${baseUrl}${column.sortableLink}" class="column-sort-link d-block">${title}</a>` : title}
                 ${filterable ? this.getFilterTemplate(column) : ''}
             </th>
@@ -438,7 +459,7 @@ export default class ZkDataGrid {
         }
         if (template) return template;
 
-        const { index, options: { attributes = {}, type, options: filterOptions } } = column;
+        const { index, filterParams: { attributes = {}, type, options: filterOptions } } = column;
 
         const filterValue = this.gridObj.data.filters[index] ?? '';
 
@@ -512,20 +533,33 @@ export default class ZkDataGrid {
         `;
     }
 
-    getItemTemplate(column, item, index) {
+    getItemTemplate(item, index) {
 
         let template = this.options.itemTemplate || null;
         if (typeof template === 'function') {
-            template = template(column, item, index, this.gridObj);
+            template = template(item, index, this.gridObj);
         }
         if (template) return template;
 
-        const { data: { start = 1 } } = this.gridObj;
-        const { index: colIndex, type, column: col, itemgAttributesString } = column;
+        const { columns, massActions, data: { start = 1, key } } = this.gridObj;
 
-        return `<td data-index="${colIndex}" ${itemgAttributesString ?? ''}>
-            ${(type === 'serial-no') ? (start + index) : item[col]}
-        </td>`;
+        return `<tr class="grid-row">
+            ${massActions && massActions.length ? `
+                <td class="mass-action align-middle">
+                    <div class="form-check form-check-inline m-0 px-2">
+                        <input style="width: 16px;" class="form-check mass-row-input" type="checkbox" name="selected[]" value="${item[key]}">
+                    </div>
+                </td>
+            ` : ''}
+            ${columns.map((column) => `<td ${this.getAttributesString(column.itemAttributes ?? {})} data-index="${column.index}">
+                ${column.type === 'serial-no' ? (start + index) : item[column.alias]}
+            </td>`).join('')}
+            ${item.actions?.length ? `
+                <td class="row-action align-top">
+                    ${item.actions.map((action) => this.getActionTemplate(action, item)).join('')}
+                </td>
+            ` : ''}
+        </tr>`;
     }
 
     getActionTemplate(action, item) {
@@ -536,13 +570,19 @@ export default class ZkDataGrid {
         }
         if (template) return template;
 
-        const { method, formatter, attributes = {}, attributesString = '' } = action;
-        const { confirm, class: _class } = attributes;
-
-        let _classCss = 'btn btn-md btn-' + (method === 'DELETE' ? 'danger' : 'primary');
-        _classCss = _class ?? _classCss;
+        const { method, formatter, attributes = {} } = action;
 
         if (formatter !== false) return formatter;
+
+        const { confirm } = attributes;
+
+        if (!attributes.class) {
+            attributes.class = 'btn btn-sm btn-' + (method === 'DELETE' ? 'danger' : 'primary');
+        }
+
+        if (attributes.confirm) {
+            delete attributes.confirm;
+        }
 
         switch (method) {
             case 'POST':
@@ -553,16 +593,16 @@ export default class ZkDataGrid {
                     <form action="${action.url}" method="POST" style="display: inline;" ${confirm ? `onsubmit="return confirm('${confirm}');"` : ''}>
                         <input type="hidden" name="_token" value="${this.gridObj.csrf_token}" autocomplete="off">
                         ${!['POST', 'GET'].includes(method) ? `<input type="hidden" name="_method" value="${method}">` : ''}
-                        <button type="submit" class="${_classCss}" ${attributesString ?? ''}>
-                            ${action.icon ? (action.formatIcon ? action.icon : `<i class="${action.icon}"></i>`) : ''}
+                        <button type="submit" ${this.getAttributesString(attributes)}>
+                            ${action.icon ? ((new RegExp('<.*?>').test(action.icon)) ? action.icon : `<i class="${action.icon}"></i>`) : ''}
                             ${action.title}
                         </button>
                     </form>
                 `;
             default:
                 return `
-                    <a href="${action.url}" class="${_classCss}" ${confirm ? `onclick="return confirm('${confirm}');"` : ''} ${attributesString ?? ''}>
-                        ${action.icon ? (action.formatIcon ? action.icon : `<i class="${action.icon}"></i>`) : ''}
+                    <a href="${action.url}" ${this.getAttributesString(attributes)} ${confirm ? `onclick="return confirm('${confirm}');"` : ''}>
+                        ${action.icon ? ((new RegExp('<.*?>').test(action.icon)) ? action.icon : `<i class="${action.icon}"></i>`) : ''}
                         ${action.title}
                     </a>
                 `;

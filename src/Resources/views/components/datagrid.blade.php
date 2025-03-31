@@ -13,7 +13,7 @@
         // Recursive function to generate hidden input fields for nested arrays
         function renderHiddenInputs($data, $parentKey = '') {
             foreach ($data as $key => $value) {
-                if(in_array($key, ['page','limit', 'search', 'filters', 'adv'])) {
+                if(in_array($key, ['page', 'limit', 'search', 'filters', 'adv'])) {
                     continue;
                 }
                 $inputName = $parentKey ? "{$parentKey}[{$key}]" : $key;

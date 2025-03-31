@@ -50,25 +50,13 @@ class Action
     }
 
     /**
-     * is callable icon.
-     * 
-     * @return bool
-     */
-    public function isCallableIcon(): bool
-    {
-        return $this->icon != null && is_callable($this->icon);
-    }
-
-    /**
      * Get icon.
      * 
      * @return mixed
      */
     public function getIcon(): mixed
     {
-        $icon = $this->icon;
-
-        return ($this->isCallableIcon()) ? $icon() : $icon;
+        return $this->icon;
     }
 
     /**
@@ -166,7 +154,6 @@ class Action
             'index' => $this->getIndex(),
             'title' => $this->getTitle(),
             'icon' => $this->getIcon(),
-            'formatIcon' => $this->isCallableIcon(),
             'method' => $this->getMethod(),
             'url' => (!$this->isCallableUrl()) ? $this->getUrl() : null,
             'formatter' => $this->isFormatter(),
