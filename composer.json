@@ -1,27 +1,37 @@
 {
-    "name": "zk/laravel-datagrid",
-    "license": "MIT",
-    "authors": [
-        {
-            "name": "Zankat Kalpesh",
-            "email": "zkdeveloper24@gmail.com"
-        }
-    ],
-    "require": {
-        "php": "^8.2"
-    },
-    "autoload": {
-        "psr-4": {
-            "Zk\\DataGrid\\": "src/"
-        }
-    },
-    "extra": {
-        "laravel": {
-            "providers": [
-                "Zk\\DataGrid\\Providers\\DataGridServiceProvider"
-            ],
-            "aliases": {}
-        }
-    },
-    "minimum-stability": "dev"
+  "name": "zk/laravel-datagrid",
+  "license": "MIT",
+  "description": "A lightweight and customizable DataGrid solution for Laravel, built with Blade components, lazy loading, and a powerful custom datagrid.js library for seamless frontend interactivity.",
+  "keywords": [
+    "Laravel datagrid",
+    "Laravel data grid component",
+    "Laravel data table",
+    "Laravel lazy loading table",
+    "datagrid.js",
+    "Laravel Blade UI table"
+  ],
+  "authors": [
+    {
+      "name": "Zankat Kalpesh",
+      "email": "zkdeveloper24@gmail.com"
+    }
+  ],
+  "require": {
+    "php": "^8.2|^8.3",
+    "laravel/framework": "^11.0|^12.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "Zk\\DataGrid\\": "src/"
+    }
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "Zk\\DataGrid\\Providers\\DataGridServiceProvider"
+      ],
+      "aliases": {}
+    }
+  },
+  "minimum-stability": "dev"
 }
