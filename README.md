@@ -192,7 +192,8 @@ Customize filter input:
 Contributions are welcome! Feel free to submit issues and pull requests to enhance the package.
 
 ---
-
+<!---
 ## 🪪 License
 
 This package is open-source and licensed under the [MIT License](LICENSE).
+--->
