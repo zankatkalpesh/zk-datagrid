@@ -586,11 +586,12 @@ class DataGrid
     }
 
     /**
-     * Add column.
+     * Prepare column.
      * 
      * @param array $column
+     * @return Column
      */
-    public function addColumn(array $column): void
+    private function prepareColumn(array $column): Column
     {
         $defaults = [
             'type' => 'string',
@@ -612,15 +613,12 @@ class DataGrid
 
         $column = array_merge($defaults, $column);
 
-        if ($column['type'] === 'serial-no') {
-            $column['column'] = '';
-            $column['sortable'] = false;
-            $column['searchable'] = false;
-            $column['filterable'] = false;
+        if ($column['searchable'] ?? false) {
+            $this->searchEnabled = true;
         }
 
-        $this->columns[] = new Column(
-            index: count($this->columns),
+        return new Column(
+            index: $column['index'],
             column: $column['column'],
             type: $column['type'],
             alias: $column['alias'],
@@ -635,13 +633,28 @@ class DataGrid
             attributes: $column['attributes'],
             headingAttributes: $column['headingAttributes'],
             itemAttributes: $column['itemAttributes'],
-            component: $column['component'],
-            filterComponent: $column['filterComponent']
         );
+    }
 
-        if ($column['searchable'] ?? false) {
-            $this->searchEnabled = true;
+    /**
+     * Add column.
+     * 
+     * @param array $column
+     */
+    public function addColumn(array $column): void
+    {
+        if (isset($column['type']) && $column['type'] === 'serial-no') {
+            $column['column'] = '';
+            $column['sortable'] = false;
+            $column['searchable'] = false;
+            $column['filterable'] = false;
         }
+
+        $column['index'] = count($this->columns);
+
+        $addColumn = $this->prepareColumn($column);
+
+        $this->columns[] = $addColumn;
     }
 
     /**
