@@ -41,7 +41,7 @@ class QueryDataSource implements DataSource
             $searchColumns->filter(fn($col) => $col->isSearchableCallback())
                 ->each(fn($col) => $col->getSearchable()($query, $search, $col));
 
-            // 2. Handle eager-loaded relationships
+            // 2. Eager relationship search
             $searchColumns->filter(fn($col) => $col->isEager())
                 ->groupBy(fn($col) => $col->getRelation())
                 ->each(function ($cols, $relation) use ($query, $search) {
