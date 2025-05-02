@@ -594,6 +594,7 @@ class DataGrid
     private function prepareColumn(array $column): Column
     {
         $defaults = [
+            'eager' => false,
             'type' => 'string',
             'alias' => '',
             'title' => null,
@@ -621,6 +622,7 @@ class DataGrid
             index: $column['index'],
             column: $column['column'],
             type: $column['type'],
+            eager: $column['eager'],
             alias: $column['alias'],
             title: $column['title'],
             sortable: $column['sortable'],
@@ -1119,7 +1121,8 @@ class DataGrid
         }
 
         return collect($data)->map(function ($item) use ($formatterColumns, $options) {
-            $formatted = is_array($item) ? $item : $item->toArray();
+            // $formatted = is_array($item) ? $item : $item->toArray();
+            $formatted = $item;
             // Format columns
             foreach ($formatterColumns as $column) {
                 if ($column->isExportCallback()) {
@@ -1149,7 +1152,8 @@ class DataGrid
         }
 
         return collect($data)->map(function ($item) use ($formatterColumns, $formatterActions) {
-            $formatted = is_array($item) ? $item : $item->toArray();
+            // $formatted = is_array($item) ? $item : $item->toArray();
+            $formatted = $item;
             // Format columns
             if (!$formatterColumns->isEmpty()) {
                 foreach ($formatterColumns as $column) {

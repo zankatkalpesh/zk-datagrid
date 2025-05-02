@@ -28,31 +28,60 @@ class QueryDataSource implements DataSource
      */
     public function search(mixed $search, $columns): void
     {
-        $searchColumns = collect($columns)->filter(function ($column) {
-            return $column->isSearchable() && $column->getColumn() !== '';
-        });
+        $searchColumns = collect($columns)->filter(
+            fn($column) => $column->isSearchable() && $column->getColumn()
+        );
 
         if ($searchColumns->isEmpty()) {
             return;
         }
 
         $this->query->where(function (Builder $query) use ($search, $searchColumns) {
-            foreach ($searchColumns as $column) {
-                $colName = $column->getColumn();
-                if ($column->isSearchableCallback()) {
-                    $column->getSearchable()($query, $search, $column);
-                    continue;
-                } else {
-                    $type = $column->getType();
-                    match ($type) {
-                        'number', 'integer' => $query->orWhere($colName, $search),
-                        'date' => $query->orWhereDate($colName, $search),
-                        'string-cs' => $query->orWhere($colName, 'like', "%{$search}%"),
-                        default => $query->orWhere(DB::raw("LOWER({$colName})"), 'like', "%" . strtolower($search) . "%"),
-                    };
-                }
-            }
+            // 1. Custom callback search
+            $searchColumns->filter(fn($col) => $col->isSearchableCallback())
+                ->each(fn($col) => $col->getSearchable()($query, $search, $col));
+
+            // 2. Handle eager-loaded relationships
+            $searchColumns->filter(fn($col) => $col->isEager())
+                ->groupBy(fn($col) => $col->getRelation())
+                ->each(function ($cols, $relation) use ($query, $search) {
+                    $query->orWhereHas($relation, function (Builder $query) use ($cols, $search) {
+                        $query->where(function (Builder $query) use ($cols, $search) {
+                            foreach ($cols as $col) {
+                                $colName = $col->getRelationColumn();
+                                $type = $col->getType();
+                                $this->applySearchCondition($query, $colName, $type, $search);
+                            }
+                        });
+                    });
+                });
+
+            // 3. Direct column search
+            $searchColumns->filter(fn($col) => !$col->isEager() && !$col->isSearchableCallback())
+                ->each(function ($col) use ($query, $search) {
+                    $colName = $col->getColumn();
+                    $type = $col->getType();
+                    $this->applySearchCondition($query, $colName, $type, $search);
+                });
         });
+    }
+
+    /**
+     * Apply search condition based on column type.
+     */
+    public function applySearchCondition(Builder $query, string $colName, string $type, $search): void
+    {
+        $method = match ($type) {
+            'number', 'integer' => 'orWhere',
+            'date' => 'orWhereDate',
+            'string-cs' => fn($q, $col, $val) => $q->orWhere($col, 'like', '%' . $val . '%'),
+            'fulltext' => fn($q, $col, $val) => $q->orWhereRaw("MATCH(" . $col . ") AGAINST (? IN BOOLEAN MODE)", [$val]),
+            default => fn($q, $col, $val) => $q->orWhere(DB::raw('LOWER(' . $col . ')'), 'like', '%' . strtolower($val) . '%'),
+        };
+
+        is_callable($method)
+            ? $method($query, $colName, $search)
+            : $query->{$method}($colName, $search);
     }
 
     /**
@@ -61,42 +90,68 @@ class QueryDataSource implements DataSource
      */
     public function filters(array $filters, $columns): void
     {
-        $filterColumns = collect($columns)->filter(function ($column) use ($filters) {
-            if ($column->getColumn() === '') return false;
-
-            $colIndex = $column->getIndex();
-            return $column->isFilterable() && isset($filters[$colIndex]) && $filters[$colIndex] !== '';
-        });
+        $filterColumns = collect($columns)->filter(
+            fn($col) =>
+            $col->isFilterable()
+                && trim($col->getColumn()) !== ''
+                && isset($filters[$col->getIndex()])
+                && $filters[$col->getIndex()] !== ''
+        );
 
         if ($filterColumns->isEmpty()) {
             return;
         }
 
         $this->query->where(function (Builder $query) use ($filters, $filterColumns) {
-            foreach ($filterColumns as $column) {
-                $colIndex = $column->getIndex();
-                $colName = $column->getColumn();
-                $filter = $filters[$colIndex] ?? null;
-                if ($column->isFilterableCallback()) {
-                    $column->getFilterable()($query, $filter, $column);
-                    continue;
-                }
+            // 1. Custom callback filters
+            $filterColumns->filter(fn($col) => $col->isFilterableCallback())
+                ->each(fn($col) => $col->getFilterable()($query, $filters[$col->getIndex()], $col));
 
-                $type = $column->getType();
-                $method = match ($type) {
-                    'number', 'integer' => 'orWhere',
-                    'date' => 'orWhereDate',
-                    'string-cs' => fn($query, $colName, $value) => $query->orWhere($colName, 'like', '%' . $value . '%'),
-                    default => fn($query, $colName, $value) => $query->orWhere(DB::raw('LOWER(' . $colName . ')'), 'like', '%' . strtolower($value) . '%'),
-                };
-
-                $query->where(function (Builder $query) use ($filter, $colName, $method) {
-                    foreach ((array) $filter as $value) {
-                        is_callable($method)
-                            ? $method($query, $colName, $value)
-                            : $query->{$method}($colName, $value);
-                    }
+            // 2. Eager relationship filters
+            $filterColumns->filter(fn($col) => $col->isEager())
+                ->groupBy(fn($col) => $col->getRelation())
+                ->each(function ($cols, $relation) use ($query, $filters) {
+                    $query->whereHas($relation, function (Builder $query) use ($cols, $filters) {
+                        $query->where(function (Builder $query) use ($cols, $filters) {
+                            foreach ($cols as $col) {
+                                $colName = $col->getRelationColumn();
+                                $type = $col->getType();
+                                $filter = $filters[$col->getIndex()];
+                                $this->applyFilterCondition($query, $colName, $type, $filter, true);
+                            }
+                        });
+                    });
                 });
+
+            // 3. Direct column filters
+            $filterColumns->filter(fn($col) => !$col->isEager() && !$col->isFilterableCallback())
+                ->each(function ($col) use ($query, $filters) {
+                    $colName = $col->getColumn();
+                    $type = $col->getType();
+                    $filter = $filters[$col->getIndex()];
+                    $this->applyFilterCondition($query, $colName, $type, $filter);
+                });
+        });
+    }
+
+    /**
+     * Apply filter condition based on column type.
+     */
+    public function applyFilterCondition(Builder $query, string $colName, string $type, $filter): void
+    {
+        $method = match ($type) {
+            'number', 'integer' => 'orWhere',
+            'date' => 'orWhereDate',
+            'string-cs' => fn($query, $colName, $value) => $query->orWhere($colName, 'like', '%' . $value . '%'),
+            'fulltext' => fn($q, $col, $val) => $q->orWhereRaw("MATCH(" . $col . ") AGAINST (? IN BOOLEAN MODE)", [$val]),
+            default => fn($query, $colName, $value) => $query->orWhere(DB::raw('LOWER(' . $colName . ')'), 'like', '%' . strtolower($value) . '%'),
+        };
+
+        $query->where(function (Builder $query) use ($filter, $colName, $method) {
+            foreach ((array) $filter as $value) {
+                is_callable($method)
+                    ? $method($query, $colName, $value)
+                    : $query->{$method}($colName, $value);
             }
         });
     }

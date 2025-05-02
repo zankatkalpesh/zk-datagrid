@@ -18,10 +18,12 @@
         <td data-index="{{ $column['index'] }}" {{ $attributes->merge($column['itemAttributes']) }}>
             @if ($column['type'] === 'serial-no')
                 {{ $index }}
-            @elseif ($column['escape'])
-                {{ $item[$column['alias']] }}
             @else
-                {!! $item[$column['alias']] !!}
+                @if ($column['escape'])
+                    {{ Arr::get($item, $column['alias'], '') }}
+                @else
+                    {!! Arr::get($item, $column['alias'], '') !!}
+                @endif
             @endif
         </td>
     @endforeach

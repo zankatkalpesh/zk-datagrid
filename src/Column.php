@@ -25,6 +25,7 @@ class Column
         public int $index,
         public string $column,
         public string $type,
+        public bool $eager = false,
         public mixed $alias = '',
         public mixed $title = null,
         public bool $sortable = false,
@@ -63,6 +64,47 @@ class Column
     }
 
     /**
+     * Is eager.
+     * 
+     * @return bool
+     */
+    public function isEager(): bool
+    {
+        return $this->eager;
+    }
+
+    /**
+     * Get relation path by removing the last segment.
+     * 
+     * @return string
+     */
+    public function getRelation(): string
+    {
+        if (str_contains($this->getAlias(), '.')) {
+            $parts = explode('.', $this->getAlias());
+            array_pop($parts); // remove the last segment
+            return implode('.', $parts);
+        }
+
+        return '';
+    }
+
+    /**
+     * Get relation column.
+     * 
+     * @return string
+     */
+    public function getRelationColumn(): string
+    {
+        if (str_contains($this->getAlias(), '.')) {
+            $parts = explode('.', $this->getAlias());
+            return end($parts);
+        }
+
+        return '';
+    }
+
+    /**
      * Get alias.
      * 
      * @return string
@@ -83,7 +125,8 @@ class Column
             // Convert string to human readable
             $str = ucwords($this->getAlias(), '-');
             $str = ucwords($str, '_');
-            $this->title = str_replace(['-', '_'], ' ', $str);
+            $str = ucwords($str, '.');
+            $this->title = str_replace(['-', '_', '.'], ' ', $str);
         }
 
         return $this->title;
@@ -331,10 +374,13 @@ class Column
 
         $this->output = [
             'index' => $this->getIndex(),
+            'type' => $this->getType(),
             'column' => $this->getColumn(),
+            // 'eager' => $this->isEager(),
+            // 'relation' => $this->getRelation(),
+            // 'relationColumn' => $this->getRelationColumn(),
             'alias' => $this->getAlias(),
             'title' => $this->getTitle(),
-            'type' => $this->getType(),
             'sortable' => $this->isSortable(),
             'sortableLink' => $this->getSortableLink(),
             'searchable' => $this->isSearchable(),

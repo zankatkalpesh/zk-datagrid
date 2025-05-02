@@ -273,6 +273,22 @@ export default class ZkDataGrid {
         });
     }
 
+    findData(data, key, separator = '.') {
+        if (!data) return null;
+        if (data[key] !== undefined) return data[key];
+        if (typeof key === 'string' && key.indexOf(separator) === -1) return null;
+
+        const keys = String(key).split(separator);
+        let current = data;
+
+        for (let i = 0; i < keys.length; i++) {
+            if (current == null) return null;
+            current = current[keys[i]];
+        }
+
+        return current === undefined ? null : current;
+    }
+
     getFormTemplate() {
 
         const { uid, baseUrl, data } = this.gridObj;
@@ -297,7 +313,7 @@ export default class ZkDataGrid {
 
         const { uid } = this.gridObj;
         const { perPageOptions, limit, hasSearch, search } = this.gridObj.data;
-console.log('search', search);
+
         return `
             <div class="col-12 mb-2 grid-input">
                 <div class="row">
@@ -552,7 +568,7 @@ console.log('search', search);
                 </td>
             ` : ''}
             ${columns.map((column) => `<td ${this.getAttributesString(column.itemAttributes ?? {})} data-index="${column.index}">
-                ${column.type === 'serial-no' ? (start + index) : item[column.alias]}
+                ${column.type === 'serial-no' ? (start + index) : (this.findData(item, column.alias) || '')}
             </td>`).join('')}
             ${item.actions?.length ? `
                 <td class="row-action align-top">
@@ -742,8 +758,7 @@ console.log('search', search);
         } else if (url) {
             fetchRequest = fetch(url, { headers });
         } else {
-            console.log(url);
-            console.error('No URL provided for requestHandler');
+            console.error('No URL provided for request :' + url);
             return;
         }
         fetchRequest
