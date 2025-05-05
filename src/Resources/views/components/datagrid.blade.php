@@ -36,8 +36,8 @@
                     <label for="grid-limit-{{ $grid['uid'] }}" class="input-group-text">Display</label>
                     <select class="form-select grid-change" name="limit" id="grid-limit-{{ $grid['uid'] }}">
                         @foreach($data['perPageOptions'] as $option)
-                            <option value="{{ $option }}" @if($option == $data['limit']) selected @endif>
-                                {{ $option }}
+                            <option value="{{ $option['value'] ?? $option }}" @if(($option['value'] ?? $option) == $data['limit']) selected @endif>
+                                {{ $option['label'] ?? $option }}
                             </option>
                         @endforeach
                     </select>

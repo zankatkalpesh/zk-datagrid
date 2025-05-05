@@ -321,7 +321,7 @@ export default class ZkDataGrid {
                         <div class="input-group">
                             <label for="grid-limit-${uid}" class="input-group-text">Display</label>
                             <select class="form-select grid-change" name="limit" id="grid-limit-${uid}">
-                                ${perPageOptions.map((option) => `<option value="${option}" ${option === limit ? "selected" : ""}>${option}</option>`).join("")}
+                                ${perPageOptions.map((option) => `<option value="${option?.value || option}" ${(option?.value || option) === limit ? "selected" : ""}>${option?.label || option}</option>`).join("")}
                             </select>
                             <label for="grid-limit-${uid}" class="input-group-text">results</label>
                         </div>

@@ -166,6 +166,9 @@ class QueryDataSource implements DataSource
         $this->query->reorder();
 
         collect($columns)->each(function ($column, $index) use ($orders) {
+            if ($column instanceof Column) {
+                $column = $column->getColumn();
+            }
             $order = ($orders[$index] ?? 'asc') === 'asc' ? 'asc' : 'desc';
             $this->query->orderBy($column, $order);
         });

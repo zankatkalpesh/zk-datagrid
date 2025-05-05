@@ -120,11 +120,11 @@ class CollectionDataSource implements DataSource
     public function sort(array $columns, array $orders): void
     {
         collect($columns)->each(function ($column, $index) use ($orders) {
-            if (($orders[$index] ?? 'asc') === 'asc') {
-                $this->processedData = $this->processedData->sortBy($column);
-            } else {
-                $this->processedData = $this->processedData->sortByDesc($column);
+            if ($column instanceof Column) {
+                $column = $column->getColumn();
             }
+            $order = ($orders[$index] ?? 'asc') === 'asc' ? 'asc' : 'desc';
+            $this->processedData = $this->processedData->sortBy($column, SORT_REGULAR, $order === 'desc');
         });
     }
 

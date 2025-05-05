@@ -251,11 +251,8 @@ class Column
         }
         $query = request()->query();
         $sort = $query['sort'] ?? ['column' => null, 'order' => null];
-
         $sort['order'] = ($sort['column'] == $this->getIndex() && $sort['order'] === 'asc') ? 'desc' : 'asc';
-
         $sort['column'] = $this->getIndex();
-
         $query['sort'] = $sort;
 
         return $this->path . '?' . Arr::query($query);

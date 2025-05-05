@@ -15,6 +15,8 @@ use Zk\DataGrid\DataSources\CollectionDataSource;
 use Zk\DataGrid\DataSources\ArrayDataSource;
 use Illuminate\Support\Str;
 
+use const FlixTech\AvroSerializer\Protocol\validate;
+
 class DataGrid
 {
     /**
@@ -85,7 +87,7 @@ class DataGrid
      * 
      * @var array|null
      */
-    protected $perPageOptions = [15, 25, 50, 75, 100];
+    protected $perPageOptions = [15, 25, 50, 75, 100, ['value' => 'all', 'label' => 'All']];
 
     /**
      * Columns.
@@ -769,7 +771,7 @@ class DataGrid
      */
     public function toAjax(): string
     {
-        return addslashes(json_encode(['lazyLoad' => true, ...$this->processOutput(true)]));
+        return addslashes(json_encode(['lazyLoad' => true, ...$this->processOutput(false)]));
     }
 
     /**
@@ -814,18 +816,19 @@ class DataGrid
     /**
      * Process output.
      * 
-     * @param bool $format
+     * @param bool $query
      * @return array
      */
-    public function processOutput(bool $format = false)
+    public function processOutput(bool $query = true)
     {
+        // Skip processing if already set
         if ($this->output !== null) {
             return $this->output;
         }
 
         $this->init();
 
-        $this->processRequest($format);
+        $this->processRequest($query);
 
         $this->output = [
             'csrf_token' => csrf_token(),
@@ -857,20 +860,21 @@ class DataGrid
     /**
      * Export datagrid.
      * 
-     * @param bool $all
      * @param array $options
      * @return array
      */
-    public function export(bool $all = false, array $options = []): array
+    public function export(array $options = []): array
     {
+        // Skip processing if already set
         if ($this->exportOutput !== null) {
             return $this->exportOutput;
         }
 
-        $data = $this->processExport($all, $options);
+        $this->init();
+
+        $data = $this->processExport($options);
 
         $this->exportOutput = [
-            'all' => $all,
             'columns' => $this->getColumnsArray('export'),
             'data' => $data,
             'options' => $options,
@@ -889,7 +893,12 @@ class DataGrid
             'filters' => ['sometimes', 'required', 'array'],
             'sort' => ['sometimes', 'required', 'array'],
             'page'  => ['sometimes', 'required', 'numeric'],
-            'limit' => ['sometimes', 'required', 'numeric']
+            'limit' => ['sometimes', 'required', function ($attribute, $value, $fail) {
+                if (!is_numeric($value) && $value !== 'all') {
+                    $message = trans('validation.datagrid.limit', ['attribute' => $attribute]);
+                    $fail($message !== 'validation.datagrid.limit' ? $message : "The $attribute must be a number or 'all'.");
+                }
+            }],
         ]);
 
         return request()->only(['search', 'filters', 'sort', 'page', 'limit']);
@@ -898,10 +907,10 @@ class DataGrid
     /**
      * Process request.
      * 
-     * @param bool $format
+     * @param bool $query
      * @return void
      */
-    public function processRequest(bool $format = false): void
+    public function processRequest(bool $query = true): void
     {
         // Skip processing if already set
         if ($this->requestData !== null) {
@@ -910,7 +919,8 @@ class DataGrid
 
         $request = $this->validatedRequest();
 
-        $limit = min($request['limit'] ?? $this->itemsPerPage, $this->maxItemsPerPage);
+        $limit = $request['limit'] ?? $this->itemsPerPage;
+        $limit = $limit === 'all' ? 'all' : min($limit, $this->maxItemsPerPage);
         $search = $request['search'] ?? null;
         $filters = $request['filters'] ?? [];
         $sort = $request['sort'] ?? [];
@@ -918,22 +928,28 @@ class DataGrid
         // Default values
         $paginator = $items = $total = $start = $end = $links = $hasPages = $currentPage = $hasMorePages = null;
 
-        // Query processing if format is false
-        if (!$format) {
-            $paginator = $this->search($search)
+        // Query processing if query is true
+        if ($query) {
+            $this->search($search)
                 ->filters($filters)
-                ->sort($sort)
-                ->paginate($limit)
-                ->appends(request()->query());
+                ->sort($sort);
 
-            $items = $this->format($paginator->items());
-            $total = $paginator->total();
-            $hasPages = $paginator->hasPages();
-            $currentPage = $paginator->currentPage();
-            $start = $paginator->firstItem();
-            $end = $paginator->lastItem();
-            $links = $paginator->linkCollection()->toArray();
-            $hasMorePages = $paginator->hasMorePages();
+            if ($limit === 'all') {
+                $items = $this->dataSource->all();
+                $total = $items->count();
+            } else {
+                $paginator = $this->paginate($limit)->appends(request()->query());
+                $items = $paginator->items();
+                $total = $paginator->total();
+                $hasPages = $paginator->hasPages();
+                $currentPage = $paginator->currentPage();
+                $start = $paginator->firstItem();
+                $end = $paginator->lastItem();
+                $links = $paginator->linkCollection()->toArray();
+                $hasMorePages = $paginator->hasMorePages();
+                $limit = $paginator->perPage();
+            }
+            $items = $this->format($items ?? []);
         }
 
         $this->requestData = [
@@ -948,9 +964,9 @@ class DataGrid
             'search' => $search,
             'hasSearch' => $this->searchEnabled,
             'filters' => $filters,
-            'start' => $start ?? 0,
+            'start' => $start ?? 1,
             'end' => $end ?? 0,
-            'limit' => $paginator ? $paginator->perPage() : $limit,
+            'limit' => $limit,
             'maxItemsPerPageLimit' => $this->maxItemsPerPage,
             'links' => $links ?? [],
             'hasMorePages' => $hasMorePages,
@@ -963,17 +979,15 @@ class DataGrid
     /**
      * Process export.
      * 
-     * @param bool $all
      * @param array $options
      * @return mixed
      */
-    public function processExport(bool $all = false, array $options = []): mixed
+    public function processExport(array $options = []): mixed
     {
-        $this->init();
-
         $request = $this->validatedRequest();
 
-        $limit = min($request['limit'] ?? $this->itemsPerPage, $this->maxItemsPerPage);
+        $limit = $request['limit'] ?? $this->itemsPerPage;
+        $limit = $limit === 'all' ? 'all' : min($limit, $this->maxItemsPerPage);
         $search = $request['search'] ?? null;
         $filters = $request['filters'] ?? [];
         $sort = $request['sort'] ?? [];
@@ -985,7 +999,7 @@ class DataGrid
             ->filters($filters)
             ->sort($sort);
 
-        if ($all) {
+        if ($limit === 'all' || ($options['all'] ?? false)) {
             $items = $this->dataSource->all();
             $total = $items->count();
         } else {
@@ -1000,15 +1014,15 @@ class DataGrid
             $limit = $paginator->perPage();
         }
 
-        $items = $this->format($items, 'export', $options);
+        $items = $this->format($items ?? [], 'export', $options);
 
         return [
             'items' => $items,
             'total' => $total,
             'hasPages' => $hasPages,
             'currentPage' => $currentPage,
-            'start' => $start,
-            'end' => $end,
+            'start' => $start ?? 1,
+            'end' => $end ?? 0,
             'limit' => $limit,
             'hasMorePages' => $hasMorePages,
         ];
@@ -1064,15 +1078,15 @@ class DataGrid
         $order = $sort['order'] ?? $this->sortOrder;
 
         if (isset($this->columns[$column]) && $this->columns[$column]->isSortable()) {
-            $column = $this->columns[$column]->getColumn();
+            $column = $this->columns[$column];
         } else {
             $column = $this->sortColumn;
         }
 
-        $this->sortColumn = $column;
-        $this->sortOrder = $order;
+        $this->sortColumn = ($column instanceof Column) ? $column->getColumn() : $column;
+        $this->sortOrder = ($order === 'asc' || $order === 'desc') ? $order : $this->sortOrder;
 
-        $this->dataSource->sort([$this->sortColumn], [$this->sortOrder]);
+        $this->dataSource->sort([$column], [$this->sortOrder]);
 
         return $this;
     }
@@ -1180,10 +1194,10 @@ class DataGrid
         $actionArray = $action->toArray();
 
         if ($action->isCallableUrl()) {
-            $actionArray['url'] = $action->getUrl()($item, $action, $actionArray);
+            $actionArray['url'] = $action->getUrl()($item, $action);
         }
         if ($action->isFormatter()) {
-            $actionArray['formatter'] = $action->getFormatter()($item, $action, $actionArray);
+            $actionArray['formatter'] = $action->getFormatter()($item, $action);
         }
 
         return $actionArray;

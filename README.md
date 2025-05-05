@@ -125,12 +125,12 @@ Update your Blade template:
 Export the grid data:
 
 ```php
-$exportData = $grid->export(); // Params: $all = false, $options = []
+$exportData = $grid->export(); // Params: $options = []
 ```
 
 - All columns are exported by default.
 - To exclude a column, add `'export' => false` in its definition.
-- To export **all data** (not paginated), pass `true` as the first parameter.
+- To export **all data** (not paginated), options set ['all' => true].
 - Use the `export` formatter for custom export logic:
 
 ```php
@@ -197,3 +197,4 @@ Contributions are welcome! Feel free to submit issues and pull requests to enhan
 
 This package is open-source and licensed under the [MIT License](LICENSE).
 --->
+
