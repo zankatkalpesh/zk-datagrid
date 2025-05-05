@@ -42,7 +42,7 @@ class QueryDataSource implements DataSource
                 ->each(fn($col) => $col->getSearchable()($query, $search, $col));
 
             // 2. Eager relationship search
-            $searchColumns->filter(fn($col) => $col->isEager())
+            $searchColumns->filter(fn($col) => $col->isEager() && !$col->isSearchableCallback())
                 ->groupBy(fn($col) => $col->getRelation())
                 ->each(function ($cols, $relation) use ($query, $search) {
                     $query->orWhereHas($relation, function (Builder $query) use ($cols, $search) {
@@ -108,7 +108,7 @@ class QueryDataSource implements DataSource
                 ->each(fn($col) => $col->getFilterable()($query, $filters[$col->getIndex()], $col));
 
             // 2. Eager relationship filters
-            $filterColumns->filter(fn($col) => $col->isEager())
+            $filterColumns->filter(fn($col) => $col->isEager() && !$col->isFilterableCallback())
                 ->groupBy(fn($col) => $col->getRelation())
                 ->each(function ($cols, $relation) use ($query, $filters) {
                     $query->whereHas($relation, function (Builder $query) use ($cols, $filters) {
