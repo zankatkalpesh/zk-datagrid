@@ -28,6 +28,7 @@ class Action
         public bool $escape = true,
         public array $attributes = [],
         public string $component = 'datagrid::action',
+        public mixed $can = null,
     ) {}
 
     /**
@@ -137,6 +138,17 @@ class Action
     public function getComponent(): string
     {
         return $this->component;
+    }
+
+    /**
+     * Get can.
+     * 
+     * @param mixed $item
+     * @return bool
+     */
+    public function can($item): bool
+    {
+        return $this->can != null && (is_callable($this->can) ? (bool) call_user_func($this->can, $item, $this) : (bool) $this->can);
     }
 
     /**

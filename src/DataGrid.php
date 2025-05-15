@@ -674,6 +674,7 @@ class DataGrid
             'escape' => true,
             'attributes' => [],
             'component' => 'datagrid::action',
+            'can' => true,
         ];
 
         $action = array_merge($defaults, $action);
@@ -687,7 +688,8 @@ class DataGrid
             formatter: $action['formatter'],
             escape: $action['escape'],
             attributes: $action['attributes'],
-            component: $action['component']
+            component: $action['component'],
+            can: $action['can']
         );
     }
 
@@ -1175,7 +1177,8 @@ class DataGrid
                 }
             }
             // Add actions
-            $formatted['actions'] = $formatterActions->map(fn($action) => $this->formatAction($item, $action))->all();
+            $formatted['actions'] = $formatterActions->filter(fn($action) => $action->can($item))
+                ->map(fn($action) => $this->formatAction($item, $action))->all();
 
             return $formatted;
         });
