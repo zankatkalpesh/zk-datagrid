@@ -15,8 +15,6 @@ use Zk\DataGrid\DataSources\CollectionDataSource;
 use Zk\DataGrid\DataSources\ArrayDataSource;
 use Illuminate\Support\Str;
 
-use const FlixTech\AvroSerializer\Protocol\validate;
-
 class DataGrid
 {
     /**
@@ -705,11 +703,12 @@ class DataGrid
             'options' => [],
             'params' => [],
             'attributes' => [],
+            'can' => true,
         ];
 
         $massAction = array_merge($defaults, $massAction);
 
-        $this->massActions[] = new MassAction(
+        $addAction = new MassAction(
             index: count($this->massActions),
             title: $massAction['title'],
             value: $massAction['value'],
@@ -721,6 +720,14 @@ class DataGrid
             params: $massAction['params'],
             attributes: $massAction['attributes']
         );
+
+        $can = $massAction['can'] != null && (is_callable($massAction['can']) ? (bool) call_user_func($massAction['can'], $addAction) : (bool) $massAction['can']);
+
+        if (!$can) {
+            return;
+        }
+
+        $this->massActions[] = $addAction;
     }
 
     /**
