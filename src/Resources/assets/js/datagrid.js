@@ -13,11 +13,18 @@ export default class ZkDataGrid {
         loadingDelay: 0,
         class: 'zk-datagrid row',
         loader: `<div class="zk-datagrid-loader">Loading...</div>`,
+        // Add any additional headers
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+        responseHandler: async (res) => {
+            return await res.json();
+        }
     }
 
     constructor(options = {}) {
         this.setOptions(options);
-        this.context = document.createDocumentFragment();
+        this.context = document ? document.createDocumentFragment() : null;
     }
 
     lazyLoad(status = true) {
@@ -726,58 +733,66 @@ export default class ZkDataGrid {
         const { context } = this;
         if (!context) return;
 
-        context.classList.add('grid-loading');
-
-        const loader = context.querySelector('.grid-items .grid-data-loader');
-        const emptyData = context.querySelector('.grid-items .grid-empty-data');
-        const gridRows = context.querySelectorAll('.grid-items .grid-row');
-
-        loader?.style.removeProperty('display');
-        emptyData?.style.setProperty('display', 'none');
-
-        // Clear existing grid rows
-        gridRows.forEach((el) => el.remove());
-
-        let fetchRequest;
-
-        const headers = {
-            'X-Requested-With': 'XMLHttpRequest',
-        };
-
-        if (type === 'form') {
-            const form = context.querySelector('.grid-form');
-            if (!form) return;
-
-            const formUrl = form.getAttribute('action');
-            const method = form.getAttribute('method') || 'GET';
-            const data = new FormData(form);
-
-            fetchRequest = method === 'GET'
-                ? fetch(`${formUrl}${formUrl.includes('?') ? '&' : '?'}${new URLSearchParams(data).toString()}`, { method, headers })
-                : fetch(formUrl, { method, body: data, headers });
-        } else if (url) {
-            fetchRequest = fetch(url, { headers });
+        // Check requestHandler is set
+        if (this.options.requestHandler) {
+            this.options.requestHandler(context, type, url);
         } else {
-            console.error('No URL provided for request :' + url);
-            return;
+
+            context.classList.add('grid-loading');
+
+            const loader = context.querySelector('.grid-items .grid-data-loader');
+            const emptyData = context.querySelector('.grid-items .grid-empty-data');
+            const gridRows = context.querySelectorAll('.grid-items .grid-row');
+
+            loader?.style.removeProperty('display');
+            emptyData?.style.setProperty('display', 'none');
+
+            // Clear existing grid rows
+            gridRows.forEach((el) => el.remove());
+
+            let fetchRequest;
+
+            const headers = this.options.headers || {};
+
+            if (type === 'form') {
+                const form = context.querySelector('.grid-form');
+                if (!form) return;
+
+                const formUrl = form.getAttribute('action');
+                const method = form.getAttribute('method') || 'GET';
+                const data = new FormData(form);
+
+                fetchRequest = method === 'GET'
+                    ? fetch(`${formUrl}${formUrl.includes('?') ? '&' : '?'}${new URLSearchParams(data).toString()}`, { method, headers })
+                    : fetch(formUrl, { method, body: data, headers });
+            } else if (url) {
+                fetchRequest = fetch(url, { headers });
+            } else {
+                console.error('No URL provided for request :' + url);
+                return;
+            }
+            fetchRequest
+                .then(async (res) => {
+                    if (!res.ok) {
+                        const errorText = await res.text(); // Read error response as text
+                        throw new Error(errorText || `HTTP error! Status: ${res.status}`);
+                    }
+                    if (this.options.responseHandler) {
+                        return this.options.responseHandler(res);
+                    } else {
+                        return await res.json();
+                    }
+                })
+                .then((data) => this.generate(data))
+                .catch((err) => {
+                    emptyData?.style.removeProperty('display');
+                    this.dispatch('requestError', { status: 'error', error: err });
+                })
+                .finally(() => {
+                    context.classList.remove('grid-loading');
+                    loader?.style.setProperty('display', 'none');
+                });
         }
-        fetchRequest
-            .then(async (res) => {
-                if (!res.ok) {
-                    const errorText = await res.text(); // Read error response as text
-                    throw new Error(errorText || `HTTP error! Status: ${res.status}`);
-                }
-                return res.json();
-            })
-            .then((data) => this.generate(data))
-            .catch((err) => {
-                emptyData?.style.removeProperty('display');
-                this.dispatch('requestError', { status: 'error', error: err });
-            })
-            .finally(() => {
-                context.classList.remove('grid-loading');
-                loader?.style.setProperty('display', 'none');
-            });
     }
 
     registerEvents(isLazy = false) {
